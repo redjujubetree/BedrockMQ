@@ -1,0 +1,20 @@
+{
+  "name": "bedrock-admin-front",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build"
+  },
+  "dependencies": {
+    "vue": "^3.4.21",
+    "vue-router": "^4.3.0",
+    "element-plus": "^2.6.2",
+    "@element-plus/icons-vue": "^2.3.1",
+    "axios": "^1.6.8"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.0.4",
+    "vite": "^5.2.7"
+  }
+}

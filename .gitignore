@@ -1,0 +1,37 @@
+# Maven
+target/
+*.jar
+*.war
+*.class
+.mvn/wrapper/maven-wrapper.jar
+
+# Logs
+logs/
+*.log
+*.log.gz
+
+# IDE
+.idea/
+*.iml
+*.iws
+*.ipr
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Node / Frontend
+bedrockmq-admin-frontend/node/
+bedrockmq-admin-frontend/.node/
+bedrockmq-admin-frontend/node_modules/
+bedrockmq-admin-frontend/dist/
+
+# Environment / Secrets
+*.env
+.env.*
+application-local.properties
+application-local.yml
+CLAUDE.md
