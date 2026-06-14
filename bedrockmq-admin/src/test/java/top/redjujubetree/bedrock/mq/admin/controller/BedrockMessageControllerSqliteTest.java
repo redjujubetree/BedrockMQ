@@ -26,9 +26,18 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@SpringBootTest
+@SpringBootTest(properties = {
+        "spring.datasource.url=jdbc:sqlite:file::memory:?cache=shared",
+        "spring.datasource.driver-class-name=org.sqlite.JDBC",
+        "spring.datasource.username=",
+        "spring.datasource.password=",
+        "spring.datasource.hikari.maximum-pool-size=1",
+        "spring.sql.init.schema-locations=classpath:schema-sqlite.sql",
+        "spring.sql.init.mode=always",
+        "bedrock.mq.db-dialect=sqlite"
+})
 @AutoConfigureMockMvc
-class BedrockMessageControllerTest {
+class BedrockMessageControllerSqliteTest {
 
     @Autowired MockMvc mvc;
     @Autowired BedrockMessageMapper messageMapper;
@@ -56,7 +65,6 @@ class BedrockMessageControllerTest {
                 .andReturn();
 
         Long id = extractId(result);
-        // id returned is the message id; verify bedrock_message record exists
         BedrockMessage saved = messageMapper.selectById(id);
         assertThat(saved).isNotNull();
         assertThat(saved.getTopic()).isEqualTo("order");
@@ -272,11 +280,9 @@ class BedrockMessageControllerTest {
         mvc.perform(post("/bedrock/messages/{id}/delete", recordId))
                 .andExpect(status().isOk());
 
-        // selectByIdWithMessage filters deleted=0, so result should be null
         BedrockConsumeRecord found = consumeRecordMapper.selectByIdWithMessage(recordId);
         assertThat(found).isNull();
 
-        // underlying row still exists in DB (soft delete, not physical)
         BedrockConsumeRecord raw = consumeRecordMapper.selectById(recordId);
         assertThat(raw).isNotNull();
         assertThat(raw.getDeleted()).isEqualTo(1);
@@ -289,7 +295,6 @@ class BedrockMessageControllerTest {
         mvc.perform(post("/bedrock/messages/{id}/delete", recordId))
                 .andExpect(status().isOk());
 
-        // selectPending should not return deleted records
         java.util.List<BedrockConsumeRecord> pending =
                 consumeRecordMapper.selectPending("order", "order", 100);
         assertThat(pending).noneMatch(r -> r.getId().equals(recordId));
@@ -333,7 +338,6 @@ class BedrockMessageControllerTest {
 
     private Long insertFailedConsumeRecord() {
         BedrockMessage msg = insertMessage();
-
         BedrockConsumeRecord record = new BedrockConsumeRecord();
         record.setMessageId(msg.getId());
         record.setTopic("order");

@@ -4,18 +4,28 @@
 
 ## Setup
 
-### 1. Configure application.properties
+### 1. Choose a database profile
+
+The admin app ships with two ready-made profiles. Select one by setting `spring.profiles.active` in `application.properties` (or via `--spring.profiles.active` on the command line).
+
+**SQLite (default)** — schema is auto-created on first run:
 
 ```properties
-# Database — same datasource as the target deployment
+spring.profiles.active=sqlite
+spring.datasource.url=jdbc:sqlite:/path/to/bedrockMQ.db
+spring.datasource.driver-class-name=org.sqlite.JDBC
+```
+
+**MySQL** — run `bedrockmq-spring-boot-starter/src/main/resources/schema-mysql.sql` against your database first, then:
+
+```properties
+spring.profiles.active=mysql
 spring.datasource.url=jdbc:mysql://localhost:3306/your_db?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=GMT%2B8
 spring.datasource.username=root
 spring.datasource.password=yourpassword
-
-# BedrockMQ is enabled by default after importing the starter.
-# Explicitly disable only if you want to turn it off.
-# bedrock.mq.enabled=false
 ```
+
+The admin app should point to the **same datasource** used by your producer/consumer deployments.
 
 ### 2. Start the application
 
@@ -23,13 +33,21 @@ spring.datasource.password=yourpassword
 java -jar bedrockmq-admin.jar
 ```
 
+The admin app runs on port `8080` by default with context path `/bedrockmq-admin`. All API paths below are relative to this context path:
+
+```
+http://localhost:8080/bedrockmq-admin/bedrock/...
+```
+
+To change the context path, set `server.servlet.context-path` in `application.properties`.
+
 The admin module has no consumer processors of its own. `ProcessorRegistry` will register zero handlers on startup — polling threads are not created and no messages are consumed by the admin JVM.
 
 ---
 
 ## REST API
 
-Base path: `/bedrock`
+Controller base path: `/bedrock`. With the default context path the full URL prefix is `http://localhost:8080/bedrockmq-admin/bedrock`.
 
 ### Consume Records
 
@@ -57,7 +75,7 @@ Response: paginated `PageResult` — fields `records`, `total`, `current`, `size
 GET /bedrock/messages/{id}
 ```
 
-Returns a single consume record including `payload` and `messageSource` (fetched via JOIN with `bedrock_message`).
+Returns a single consume record including `payload` and `messageSource` (fetched via JOIN with `bedrock_message`). Returns `404` if the record does not exist or has been soft-deleted.
 
 #### Send message
 
@@ -90,13 +108,24 @@ POST /bedrock/messages/{id}/retry
 
 Resets a FAILED consume record to PENDING and clears `retry_count`, `error_msg`, and `node_id`. Returns `404` if the record does not exist or is not in FAILED status.
 
+#### Batch retry failed records
+
+```
+POST /bedrock/messages/batch/retry
+Content-Type: application/json
+
+{ "ids": [1, 2, 3] }
+```
+
+Resets multiple FAILED consume records to PENDING in a single statement. Returns `{ "updated": N }` with the number of affected rows. Records that are not in FAILED status are silently skipped.
+
 #### Cancel pending record
 
 ```
 POST /bedrock/messages/{id}/cancel
 ```
 
-Moves a PENDING consume record to FAILED (status 3). Returns `404` if the record is not in PENDING status.
+Moves a PENDING consume record to FAILED (status 3). Returns `404` if the record does not exist or is not in PENDING status.
 
 #### Update max retry
 
@@ -146,7 +175,7 @@ Returns all rows in `bedrock_subscription` ordered by id.
 POST /bedrock/subscriptions/{id}/enable
 ```
 
-Sets `status=1`. Subsequent messages on this topic will create a consume record for this consumer.
+Sets `status=1`. Subsequent messages on this topic will create a consume record for this consumer. Returns `404` if the subscription ID does not exist.
 
 #### Disable subscription
 
@@ -154,7 +183,7 @@ Sets `status=1`. Subsequent messages on this topic will create a consume record 
 POST /bedrock/subscriptions/{id}/disable
 ```
 
-Sets `status=0`. Subsequent messages will **not** create consume records for this consumer.
+Sets `status=0`. Subsequent messages will **not** create consume records for this consumer. Returns `404` if the subscription ID does not exist.
 
 > **Note:** disabling a subscription only affects future fanout. Consume records already in `bedrock_consume_record` are unaffected and will continue to be polled and processed by any running consumer JVM.
 

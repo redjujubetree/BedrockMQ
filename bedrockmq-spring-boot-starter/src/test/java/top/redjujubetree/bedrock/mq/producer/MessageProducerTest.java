@@ -189,6 +189,80 @@ class MessageProducerTest {
                 .hasMessageContaining("Failed to serialize payload");
     }
 
+    // ── sendBatch: per-request overrides ───────────────────────────────────────
+
+    @Test
+    void sendBatch_usesPerRequestScheduledAt() {
+        BedrockSubscription sub = subscription("order", "order", 3);
+        when(subscriptionMapper.findEnabledByTopic("order")).thenReturn(Collections.singletonList(sub));
+
+        LocalDateTime future = LocalDateTime.now().plusHours(2);
+        BedrockMessageRequest req = new BedrockMessageRequest("order", "shop", "p1");
+        req.setScheduledAt(future);
+
+        producer.sendBatch(Collections.singletonList(req));
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<BedrockConsumeRecord>> captor = ArgumentCaptor.forClass(List.class);
+        verify(consumeRecordMapper).insertBatch(captor.capture());
+        assertThat(captor.getValue().get(0).getScheduledAt()).isEqualTo(future);
+    }
+
+    @Test
+    void sendBatch_overridesSubscriptionMaxRetryWhenPerRequestMaxRetryIsNonZero() {
+        BedrockSubscription sub = subscription("order", "order", 3);
+        when(subscriptionMapper.findEnabledByTopic("order")).thenReturn(Collections.singletonList(sub));
+
+        BedrockMessageRequest req = new BedrockMessageRequest("order", "shop", "p1");
+        req.setMaxRetry(9);
+
+        producer.sendBatch(Collections.singletonList(req));
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<BedrockConsumeRecord>> captor = ArgumentCaptor.forClass(List.class);
+        verify(consumeRecordMapper).insertBatch(captor.capture());
+        assertThat(captor.getValue().get(0).getMaxRetry()).isEqualTo(9);
+    }
+
+    @Test
+    void sendBatch_doesNotCallConsumeRecordInsertWhenNoSubscriptionsExist() {
+        when(subscriptionMapper.findEnabledByTopic("order")).thenReturn(Collections.emptyList());
+
+        producer.sendBatch(Collections.singletonList(new BedrockMessageRequest("order", "shop", "p")));
+
+        verify(consumeRecordMapper, never()).insertBatch(any());
+    }
+
+    // ── parameter validation ────────────────────────────────────────────────────
+
+    @Test
+    void send_throwsWhenTopicIsNull() {
+        assertThatThrownBy(() -> producer.send(null, "shop", "payload"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("topic");
+    }
+
+    @Test
+    void send_throwsWhenTopicIsEmpty() {
+        assertThatThrownBy(() -> producer.send("", "shop", "payload"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("topic");
+    }
+
+    @Test
+    void send_throwsWhenMessageSourceIsNull() {
+        assertThatThrownBy(() -> producer.send("order", null, "payload"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("messageSource");
+    }
+
+    @Test
+    void send_throwsWhenMessageSourceIsEmpty() {
+        assertThatThrownBy(() -> producer.send("order", "", "payload"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("messageSource");
+    }
+
     // ── helpers ─────────────────────────────────────────────────────────────────
 
     private BedrockMessage captureInsertedMessage() {

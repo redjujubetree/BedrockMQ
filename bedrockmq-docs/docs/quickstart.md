@@ -7,8 +7,10 @@
 
 ## 1. Initialize the database
 
-Run the DDL in `bedrockmq-spring-boot-starter/src/main/resources/schema.sql` against your MySQL instance.
-This creates three tables: `bedrock_message`, `bedrock_subscription`, and `bedrock_consume_record`.
+Run the DDL against your database instance. This creates three tables: `bedrock_message`, `bedrock_subscription`, and `bedrock_consume_record`.
+
+- **MySQL**: `bedrockmq-spring-boot-starter/src/main/resources/schema-mysql.sql`
+- **SQLite**: `bedrockmq-spring-boot-starter/src/main/resources/schema-sqlite.sql`
 
 ## 2. Add the dependency
 
@@ -33,6 +35,8 @@ bedrock.mq.enabled=false
 See [API Reference — Configuration](api-reference.md#configuration) for all optional tuning properties.
 
 ## 4. Write a consumer
+
+`@BedrockConsumer` is meta-annotated with `@Component`, so it registers the class as a Spring bean automatically — no separate `@Component` or `@Service` needed.
 
 ```java
 import top.redjujubetree.bedrock.mq.annotation.BedrockConsumer;

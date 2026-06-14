@@ -1,6 +1,9 @@
 # Database Schema
 
-BedrockMQ uses three tables. Run `bedrockmq-spring-boot-starter/src/main/resources/schema.sql` to initialize them.
+BedrockMQ uses three tables.
+
+- **MySQL**: run `bedrockmq-spring-boot-starter/src/main/resources/schema-mysql.sql`
+- **SQLite**: run `bedrockmq-spring-boot-starter/src/main/resources/schema-sqlite.sql`
 
 ---
 
@@ -97,7 +100,7 @@ CREATE TABLE IF NOT EXISTS bedrock_consume_record (
 | node_id | VARCHAR(128) | Set on CAS acquire; cleared on timeout recovery |
 | retry_count | INT | Incremented on each failure |
 | max_retry | INT | `retry_count + 1 >= max_retry` → FAILED |
-| error_msg | VARCHAR(512) | Truncated to 512 chars before write |
+| error_msg | VARCHAR(512) | Truncated to 500 chars before write (leaves headroom for DB column limit) |
 | scheduled_at | DATETIME | Earliest eligible processing time; enables delayed messages |
 | deleted | TINYINT | `0`=normal, `1`=soft-deleted via admin; excluded from polling and admin list queries |
 | updated_at | DATETIME | Used by timeout recovery to detect stale PROCESSING rows |
@@ -140,15 +143,18 @@ UPDATE bedrock_consume_record
 
 ### Timeout recovery
 
-Rows stuck in PROCESSING for longer than `bedrock.processing-timeout-minutes` are reset by `TimeoutRecoveryTask` (runs every 60 s):
+Rows stuck in PROCESSING for longer than `bedrock.mq.processing-timeout-minutes` are reset by `TimeoutRecoveryTask` (runs every 60 s):
 
 ```sql
 UPDATE bedrock_consume_record
-   SET status    = CASE WHEN retry_count+1 >= max_retry THEN 3 ELSE 0 END,
+   SET status    = CASE WHEN retry_count + 1 >= max_retry THEN 3 ELSE 0 END,
        retry_count = retry_count + 1,
        node_id   = NULL,
        error_msg = 'Timeout: processing node may have crashed',
-       updated_at = NOW()
+       updated_at = :now
  WHERE status = 1
-   AND updated_at < DATE_SUB(NOW(), INTERVAL #{minutes} MINUTE)
+   AND updated_at < :threshold
+   AND deleted = 0
 ```
+
+The threshold (`NOW() - processingTimeoutMinutes`) is computed in Java and passed as a bound parameter.

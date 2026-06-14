@@ -13,9 +13,10 @@ public class BedrockMqProperties {
     private String nodeId = generateDefaultNodeId();
     private int batchSize = 10;
     private long pollIntervalMs = 1000;
-    private int processingTimeoutMinutes = 5;
+    private int processingTimeoutMinutes = 15;
     private int defaultConcurrency = 1;
     private Map<String, Integer> typeConcurrency = new HashMap<>();
+    private String dbDialect = "auto";
 
     private static String generateDefaultNodeId() {
         try {
@@ -47,4 +48,7 @@ public class BedrockMqProperties {
 
     public Map<String, Integer> getTypeConcurrency() { return typeConcurrency; }
     public void setTypeConcurrency(Map<String, Integer> typeConcurrency) { this.typeConcurrency = typeConcurrency; }
+
+    public String getDbDialect() { return dbDialect; }
+    public void setDbDialect(String dbDialect) { this.dbDialect = dbDialect; }
 }

@@ -84,6 +84,8 @@ Both `value` and `topic` are required. `ProcessorRegistry` throws `IllegalStateE
 | topic | `bedrock_message.topic` |
 | messageSource | `bedrock_message.message_source` |
 | payload | `bedrock_message.payload` (raw JSON string) |
+| createdAt | `bedrock_message.created_at` |
+| updatedAt | `bedrock_message.updated_at` |
 
 ---
 
@@ -97,9 +99,10 @@ All properties are under the `bedrock.mq.*` prefix in `application.properties`.
 | `bedrock.mq.node-id` | hostname + random suffix | Unique node identifier used for the CAS acquire lock |
 | `bedrock.mq.batch-size` | `10` | Records fetched per poll per `(topic, consumer)` pair |
 | `bedrock.mq.poll-interval-ms` | `1000` | Poll interval in milliseconds |
-| `bedrock.mq.processing-timeout-minutes` | `5` | Minutes before a PROCESSING record is considered stuck and reset |
+| `bedrock.mq.processing-timeout-minutes` | `15` | Minutes before a PROCESSING record is considered stuck and reset |
 | `bedrock.mq.default-concurrency` | `1` | Worker threads per `(topic, consumer)` pair |
 | `bedrock.mq.type-concurrency.<topic>:<consumer>` | — | Override concurrency for a specific pair, e.g. `bedrock.mq.type-concurrency.order:order=3` |
+| `bedrock.mq.db-dialect` | `auto` | SQL dialect: `mysql`, `sqlite`, or `auto` (detects from JDBC metadata) |
 
 ---
 

@@ -6,7 +6,7 @@
 
 ## 特性
 
-- **零侵入** — 未配置 `bedrock.mq.enabled=true` 时，所有 Bean 均不加载
+- **零侵入** — 显式配置 `bedrock.mq.enabled=false` 时，所有 Bean 均不加载；引入 starter 后默认启用
 - **Pub-Sub 扇出** — 一条消息广播给所有订阅该 topic 的 consumer，各自独立消费
 - **分布式互斥** — 基于 MySQL `UPDATE ... WHERE status=0` CAS 原子抢占，无需 Redis
 - **延迟 / 定时消息** — 通过 `scheduledAt` 字段支持延迟投递
@@ -53,7 +53,8 @@
 
 ### 2. 初始化数据库
 
-执行 `bedrockmq-spring-boot-starter/src/main/resources/schema.sql`。
+MySQL：执行 `bedrockmq-spring-boot-starter/src/main/resources/schema-mysql.sql`。  
+SQLite：执行 `bedrockmq-spring-boot-starter/src/main/resources/schema-sqlite.sql`。
 
 ### 3. 关闭模块（可选）
 
@@ -113,6 +114,7 @@ producer.sendBatch(List.of(
 | `bedrock.mq.processing-timeout-minutes` | `5` | 处理超时判定（分钟） |
 | `bedrock.mq.default-concurrency` | `1` | 默认消费线程数 |
 | `bedrock.mq.type-concurrency.{topic}:{consumer}` | — | 指定 (topic, consumer) 的消费线程数 |
+| `bedrock.mq.db-dialect` | `auto` | 数据库方言：`mysql`、`sqlite`、`auto`（自动检测） |
 
 ---
 

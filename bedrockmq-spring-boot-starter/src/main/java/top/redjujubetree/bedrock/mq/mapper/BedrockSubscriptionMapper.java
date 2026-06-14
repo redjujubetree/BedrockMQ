@@ -4,8 +4,10 @@ import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import top.redjujubetree.bedrock.mq.dialect.SqlDialect;
 import top.redjujubetree.bedrock.mq.entity.BedrockSubscription;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 public class BedrockSubscriptionMapper {
@@ -14,21 +16,21 @@ public class BedrockSubscriptionMapper {
             BeanPropertyRowMapper.newInstance(BedrockSubscription.class);
 
     private final NamedParameterJdbcTemplate jdbc;
+    private final SqlDialect dialect;
 
-    public BedrockSubscriptionMapper(NamedParameterJdbcTemplate jdbc) {
+    public BedrockSubscriptionMapper(NamedParameterJdbcTemplate jdbc, SqlDialect dialect) {
         this.jdbc = jdbc;
+        this.dialect = dialect;
     }
 
     /** Upsert: insert on new, update max_retry on conflict. Status is NOT overwritten (preserves admin disable). */
     public void upsert(String topic, String consumer, int maxRetry) {
-        String sql = "INSERT INTO bedrock_subscription (topic, consumer, max_retry, status) " +
-                     "VALUES (:topic, :consumer, :maxRetry, 1) " +
-                     "ON DUPLICATE KEY UPDATE max_retry = VALUES(max_retry), updated_at = NOW()";
         MapSqlParameterSource params = new MapSqlParameterSource()
                 .addValue("topic", topic)
                 .addValue("consumer", consumer)
-                .addValue("maxRetry", maxRetry);
-        jdbc.update(sql, params);
+                .addValue("maxRetry", maxRetry)
+                .addValue("now", LocalDateTime.now());
+        jdbc.update(dialect.upsertSubscriptionSql(), params);
     }
 
     /** Returns only enabled (status=1) subscriptions for the given topic. */
@@ -43,12 +45,14 @@ public class BedrockSubscriptionMapper {
     }
 
     public int enable(Long id) {
-        String sql = "UPDATE bedrock_subscription SET status = 1, updated_at = NOW() WHERE id = :id";
-        return jdbc.update(sql, new MapSqlParameterSource("id", id));
+        return jdbc.update(
+                "UPDATE bedrock_subscription SET status = 1, updated_at = :now WHERE id = :id",
+                new MapSqlParameterSource().addValue("id", id).addValue("now", LocalDateTime.now()));
     }
 
     public int disable(Long id) {
-        String sql = "UPDATE bedrock_subscription SET status = 0, updated_at = NOW() WHERE id = :id";
-        return jdbc.update(sql, new MapSqlParameterSource("id", id));
+        return jdbc.update(
+                "UPDATE bedrock_subscription SET status = 0, updated_at = :now WHERE id = :id",
+                new MapSqlParameterSource().addValue("id", id).addValue("now", LocalDateTime.now()));
     }
 }

@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.aop.framework.ProxyFactory;
 import org.springframework.context.ApplicationContext;
 
 import java.util.HashMap;
@@ -149,5 +150,27 @@ class ProcessorRegistryTest {
         assertThatThrownBy(registry::init)
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("empty topic or consumer");
+    }
+
+    @Test
+    void init_resolvesAnnotationThroughSpringJdkProxy() {
+        // JDK proxy: proxy class itself does not carry @BedrockConsumer, but
+        // AopUtils.getTargetClass() unwraps it to OrderProcessor where the annotation lives.
+        OrderProcessor target = new OrderProcessor();
+        ProxyFactory pf = new ProxyFactory(target);
+        pf.addInterface(MessageProcessor.class);
+        MessageProcessor jdkProxy = (MessageProcessor) pf.getProxy();
+
+        assertThat(jdkProxy.getClass().getAnnotation(BedrockConsumer.class)).isNull();
+
+        Map<String, Object> beans = new HashMap<>();
+        beans.put("orderProcessor", jdkProxy);
+        when(ctx.getBeansWithAnnotation(BedrockConsumer.class)).thenReturn(beans);
+
+        ProcessorRegistry registry = new ProcessorRegistry(ctx, subscriptionMapper);
+        registry.init();
+
+        assertThat(registry.getProcessor("order", "order")).isNotNull();
+        verify(subscriptionMapper).upsert("order", "order", 3);
     }
 }

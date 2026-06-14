@@ -115,6 +115,18 @@ class MessageConsumerTest {
     }
 
     @Test
+    void consume_marksFailedImmediatelyWhenMaxRetryIsOne() throws Exception {
+        when(consumeRecordMapper.tryAcquire(1L, "test-node")).thenReturn(1);
+        when(registry.getProcessor("order", "order")).thenReturn(processor);
+        doThrow(new RuntimeException("fail")).when(processor).process(any());
+
+        // retryCount=0, maxRetry=1 → nextRetry(1) >= maxRetry(1) → FAILED on first attempt
+        consumer.consume(buildRecord(0, 1));
+
+        verify(consumeRecordMapper).markFailed(eq(1L), eq(MessageStatus.FAILED), eq(1), any(), any(LocalDateTime.class));
+    }
+
+    @Test
     void consume_truncatesVeryLongExceptionMessage() throws Exception {
         when(consumeRecordMapper.tryAcquire(1L, "test-node")).thenReturn(1);
         when(registry.getProcessor("order", "order")).thenReturn(processor);

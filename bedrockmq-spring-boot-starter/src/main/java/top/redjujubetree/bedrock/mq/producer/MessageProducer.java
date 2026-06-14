@@ -96,12 +96,15 @@ public class MessageProducer {
     }
 
     private BedrockMessage buildMessage(String topic, String messageSource, Object payload) {
-        LocalDateTime now = LocalDateTime.now();
-        BedrockMessage message = new BedrockMessage();
-        message.setTopic(topic);
+        if (topic == null || topic.isEmpty()) {
+            throw new IllegalArgumentException("topic must not be null or empty");
+        }
         if (messageSource == null || messageSource.isEmpty()) {
             throw new IllegalArgumentException("messageSource must not be null or empty");
         }
+        LocalDateTime now = LocalDateTime.now();
+        BedrockMessage message = new BedrockMessage();
+        message.setTopic(topic);
         message.setMessageSource(messageSource);
         message.setPayload(toJson(payload));
         message.setCreatedAt(now);

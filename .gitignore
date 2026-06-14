@@ -4,6 +4,7 @@ target/
 *.war
 *.class
 .mvn/wrapper/maven-wrapper.jar
+.flattened-pom.xml
 
 # Logs
 logs/
@@ -34,4 +35,6 @@ bedrockmq-admin-frontend/dist/
 .env.*
 application-local.properties
 application-local.yml
+application-mysql.properties
 CLAUDE.md
+bedrockmq.db

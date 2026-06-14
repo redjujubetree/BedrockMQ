@@ -8,7 +8,6 @@ import top.redjujubetree.bedrock.mq.entity.BedrockConsumeRecord;
 import top.redjujubetree.bedrock.mq.entity.BedrockSubscription;
 import top.redjujubetree.bedrock.mq.mapper.BedrockConsumeRecordMapper;
 import top.redjujubetree.bedrock.mq.mapper.BedrockSubscriptionMapper;
-import top.redjujubetree.bedrock.mq.processor.ProcessorRegistry;
 import top.redjujubetree.bedrock.mq.producer.MessageProducer;
 
 import java.time.LocalDateTime;
@@ -22,16 +21,13 @@ public class BedrockAdminService {
 
     private final BedrockConsumeRecordMapper consumeRecordMapper;
     private final BedrockSubscriptionMapper subscriptionMapper;
-    private final ProcessorRegistry processorRegistry;
     private final MessageProducer messageProducer;
 
     public BedrockAdminService(BedrockConsumeRecordMapper consumeRecordMapper,
                                BedrockSubscriptionMapper subscriptionMapper,
-                               ProcessorRegistry processorRegistry,
                                MessageProducer messageProducer) {
         this.consumeRecordMapper = consumeRecordMapper;
         this.subscriptionMapper = subscriptionMapper;
-        this.processorRegistry = processorRegistry;
         this.messageProducer = messageProducer;
     }
 
