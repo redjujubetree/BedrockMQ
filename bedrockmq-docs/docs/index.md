@@ -1,6 +1,6 @@
 # BedrockMQ Documentation
 
-Lightweight message queue backed by an existing MySQL database. Eliminates the need for a dedicated broker (RabbitMQ, Kafka) for Spring Boot applications that already have MySQL. Supports pub-sub fan-out, delayed delivery, per-consumer retry, and distributed processing — all without Redis or any additional infrastructure.
+Lightweight message queue backed by an existing database (MySQL or SQLite). Eliminates the need for a dedicated broker (RabbitMQ, Kafka) for Spring Boot applications that already have a database. Supports pub-sub fan-out, delayed delivery, per-consumer retry, and distributed processing — all without Redis or any additional infrastructure.
 
 ## Contents
 

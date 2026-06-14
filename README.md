@@ -1,6 +1,6 @@
 # BedrockMQ
 
-基于 MySQL 的轻量级分布式 Pub-Sub 消息队列，以 Spring Boot Starter 形式接入，零额外中间件依赖。
+基于数据库的轻量级分布式 Pub-Sub 消息队列，以 Spring Boot Starter 形式接入，零额外中间件依赖。支持 MySQL 和 SQLite。
 
 ---
 
@@ -8,10 +8,11 @@
 
 - **零侵入** — 显式配置 `bedrock.mq.enabled=false` 时，所有 Bean 均不加载；引入 starter 后默认启用
 - **Pub-Sub 扇出** — 一条消息广播给所有订阅该 topic 的 consumer，各自独立消费
-- **分布式互斥** — 基于 MySQL `UPDATE ... WHERE status=0` CAS 原子抢占，无需 Redis
+- **分布式互斥** — 基于数据库 `UPDATE ... WHERE status=0` CAS 原子抢占，无需 Redis
 - **延迟 / 定时消息** — 通过 `scheduledAt` 字段支持延迟投递
 - **自动重试** — 可按 consumer 独立配置重试次数，失败后自动重新入队
 - **节点宕机恢复** — 超时任务自动将卡在 PROCESSING 的记录重置
+- **多数据库支持** — 内置 MySQL 和 SQLite 方言，可通过 `db-dialect` 配置或自动检测
 - **管理后台** — 独立部署的 Web 管理界面，支持消息查看、重试、取消、发送
 
 ---
@@ -23,6 +24,7 @@
 | Spring Boot | 2.7.18 |
 | MySQL | 5.7+ |
 | mysql-connector-j | 8.0.33 |
+| SQLite | —（通过 `db-dialect=sqlite` 或自动检测启用） |
 | Jackson | 随 Spring Boot BOM |
 
 ---
@@ -111,7 +113,7 @@ producer.sendBatch(List.of(
 | `bedrock.mq.node-id` | hostname + 随机串 | 集群节点唯一标识 |
 | `bedrock.mq.batch-size` | `10` | 每次轮询拉取的消息数 |
 | `bedrock.mq.poll-interval-ms` | `1000` | 轮询间隔（毫秒） |
-| `bedrock.mq.processing-timeout-minutes` | `5` | 处理超时判定（分钟） |
+| `bedrock.mq.processing-timeout-minutes` | `15` | 处理超时判定（分钟） |
 | `bedrock.mq.default-concurrency` | `1` | 默认消费线程数 |
 | `bedrock.mq.type-concurrency.{topic}:{consumer}` | — | 指定 (topic, consumer) 的消费线程数 |
 | `bedrock.mq.db-dialect` | `auto` | 数据库方言：`mysql`、`sqlite`、`auto`（自动检测） |
@@ -135,19 +137,28 @@ PENDING(0) ──抢占成功──→ PROCESSING(1) ──业务成功──→
 
 ## 管理后台
 
-独立部署，默认地址：`http://localhost:8080/bedrockmq-admin`
+独立部署的 Spring Boot 应用，默认地址：`http://localhost:8080/bedrockmq-admin`
 
-配置：
+**MySQL 配置：**
 
 ```properties
-spring.datasource.url=jdbc:mysql://localhost:3306/your_db?...
+spring.profiles.active=mysql
+spring.datasource.url=jdbc:mysql://localhost:3306/your_db?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=GMT%2B8
 spring.datasource.username=your_user
 spring.datasource.password=your_password
-
-bedrock.mq.enabled=true
 ```
 
-功能：消息列表与详情、手动发送、重试 / 取消、调整重试次数、订阅管理、统计概览。
+**SQLite 配置（schema 首次启动时自动创建）：**
+
+```properties
+spring.profiles.active=sqlite
+spring.datasource.url=jdbc:sqlite:/path/to/bedrockMQ.db
+spring.datasource.driver-class-name=org.sqlite.JDBC
+```
+
+管理后台需指向与生产者/消费者相同的数据源。功能：消息列表与详情、手动发送、重试 / 取消、调整重试次数、订阅管理、统计概览。
+
+详见 [bedrockmq-docs/docs/admin.md](bedrockmq-docs/docs/admin.md)。
 
 ---
 

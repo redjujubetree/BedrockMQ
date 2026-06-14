@@ -155,7 +155,7 @@ Updates `max_retry` on multiple consume records in a single statement. Returns `
 POST /bedrock/messages/{id}/delete
 ```
 
-Soft-deletes the consume record by setting `deleted=1`. The row is retained in the database for audit purposes but is excluded from all list queries, detail lookups, and polling. The parent `bedrock_message` row is unaffected.
+Soft-deletes the consume record by setting `deleted=1`. The row is retained in the database for audit purposes but is excluded from all list queries, detail lookups, and polling. The parent `bedrock_message` row is unaffected. Always returns `200` regardless of whether the ID exists.
 
 ---
 
