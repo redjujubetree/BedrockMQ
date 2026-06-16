@@ -49,7 +49,7 @@
 <dependency>
     <groupId>top.redjujubetree</groupId>
     <artifactId>bedrockmq-spring-boot-starter</artifactId>
-    <version>1.0.0-SNAPSHOT</version>
+    <version>0.0.3</version>
 </dependency>
 ```
 
@@ -137,7 +137,7 @@ PENDING(0) ──抢占成功──→ PROCESSING(1) ──业务成功──→
 
 ## 管理后台
 
-独立部署的 Spring Boot 应用，默认地址：`http://localhost:8080/bedrockmq-admin`
+独立部署的 Spring Boot 应用，默认地址：`http://localhost:9527/bedrockmq-admin`
 
 **MySQL 配置：**
 
@@ -156,7 +156,7 @@ spring.datasource.url=jdbc:sqlite:/path/to/bedrockMQ.db
 spring.datasource.driver-class-name=org.sqlite.JDBC
 ```
 
-管理后台需指向与生产者/消费者相同的数据源。功能：消息列表与详情、手动发送、重试 / 取消、调整重试次数、订阅管理、统计概览。
+管理后台需指向与生产者/消费者相同的数据源。功能：消息列表与详情、手动发送、重试 / 取消、调整重试次数、订阅管理（启用 / 停用 / 编辑最大重试次数）、统计概览。
 
 详见 [bedrockmq-docs/docs/admin.md](bedrockmq-docs/docs/admin.md)。
 
