@@ -33,13 +33,13 @@ The admin app should point to the **same datasource** used by your producer/cons
 java -jar bedrockmq-admin.jar
 ```
 
-The admin app runs on port `8080` by default with context path `/bedrockmq-admin`. All API paths below are relative to this context path:
+The admin app runs on port `9527` by default with context path `/bedrockmq-admin`. All API paths below are relative to this context path:
 
 ```
-http://localhost:8080/bedrockmq-admin/bedrock/...
+http://localhost:9527/bedrockmq-admin/bedrock/...
 ```
 
-To change the context path, set `server.servlet.context-path` in `application.properties`.
+To change the port or context path, set `server.port` / `server.servlet.context-path` in `application.properties`.
 
 The admin module has no consumer processors of its own. `ProcessorRegistry` will register zero handlers on startup — polling threads are not created and no messages are consumed by the admin JVM.
 
@@ -47,7 +47,7 @@ The admin module has no consumer processors of its own. `ProcessorRegistry` will
 
 ## REST API
 
-Controller base path: `/bedrock`. With the default context path the full URL prefix is `http://localhost:8080/bedrockmq-admin/bedrock`.
+Controller base path: `/bedrock`. With the default context path the full URL prefix is `http://localhost:9527/bedrockmq-admin/bedrock`.
 
 ### Consume Records
 
@@ -186,6 +186,17 @@ POST /bedrock/subscriptions/{id}/disable
 Sets `status=0`. Subsequent messages will **not** create consume records for this consumer. Returns `404` if the subscription ID does not exist.
 
 > **Note:** disabling a subscription only affects future fanout. Consume records already in `bedrock_consume_record` are unaffected and will continue to be polled and processed by any running consumer JVM.
+
+#### Update subscription max retry
+
+```
+POST /bedrock/subscriptions/{id}/max-retry
+Content-Type: application/json
+
+{ "maxRetry": 5 }
+```
+
+Updates the `max_retry` value on the subscription row. This affects future consume records created by the producer for this subscriber — existing consume records in `bedrock_consume_record` retain their own `max_retry` values. Returns `404` if the subscription ID does not exist.
 
 ---
 

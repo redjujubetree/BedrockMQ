@@ -4,8 +4,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import top.redjujubetree.bedrock.mq.admin.dto.MaxRetryRequest;
 import top.redjujubetree.bedrock.mq.admin.service.BedrockAdminService;
 
 @RestController
@@ -32,6 +34,12 @@ public class BedrockSubscriptionController {
     @PostMapping("/{id}/disable")
     public ResponseEntity<?> disable(@PathVariable Long id) {
         boolean ok = service.disableSubscription(id);
+        return ok ? ResponseEntity.ok().build() : ResponseEntity.notFound().build();
+    }
+
+    @PostMapping("/{id}/max-retry")
+    public ResponseEntity<?> updateMaxRetry(@PathVariable Long id, @RequestBody MaxRetryRequest req) {
+        boolean ok = service.updateSubscriptionMaxRetry(id, req.getMaxRetry());
         return ok ? ResponseEntity.ok().build() : ResponseEntity.notFound().build();
     }
 }

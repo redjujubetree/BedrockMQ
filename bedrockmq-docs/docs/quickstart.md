@@ -60,7 +60,7 @@ For pub-sub fan-out (multiple consumers on the same topic):
 public class BillingProcessor implements MessageProcessor { ... }
 ```
 
-On startup `ProcessorRegistry` upserts both handlers into `bedrock_subscription` and starts independent polling threads for each.
+On startup `ProcessorRegistry` registers both handlers into `bedrock_subscription` (insert-if-not-exists) and starts independent polling threads for each. If a row already exists, the DB values for `max_retry` and `status` are kept as-is; `@BedrockConsumer(maxRetry=N)` only takes effect on first insert.
 
 ## 5. Send a message
 

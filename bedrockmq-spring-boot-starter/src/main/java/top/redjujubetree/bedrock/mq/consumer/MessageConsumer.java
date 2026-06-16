@@ -61,6 +61,8 @@ public class MessageConsumer {
         view.setTopic(record.getTopic());
         view.setMessageSource(record.getMessageSource());
         view.setPayload(record.getPayload());
+        view.setCreatedAt(record.getMessageCreatedAt());
+        view.setUpdatedAt(record.getMessageUpdatedAt());
         return view;
     }
 

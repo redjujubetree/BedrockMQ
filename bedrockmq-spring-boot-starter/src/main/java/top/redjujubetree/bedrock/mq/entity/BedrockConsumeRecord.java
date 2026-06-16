@@ -38,4 +38,10 @@ public class BedrockConsumeRecord {
 
     /** Populated by JOIN query with bedrock_message — not stored in DB. */
     private String messageSource;
+
+    /** Populated by JOIN query with bedrock_message — not stored in DB. */
+    private LocalDateTime messageCreatedAt;
+
+    /** Populated by JOIN query with bedrock_message — not stored in DB. */
+    private LocalDateTime messageUpdatedAt;
 }

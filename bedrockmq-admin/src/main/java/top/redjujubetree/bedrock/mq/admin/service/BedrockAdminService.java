@@ -118,4 +118,8 @@ public class BedrockAdminService {
     public boolean disableSubscription(Long id) {
         return subscriptionMapper.disable(id) > 0;
     }
+
+    public boolean updateSubscriptionMaxRetry(Long id, int maxRetry) {
+        return subscriptionMapper.updateMaxRetry(id, maxRetry) > 0;
+    }
 }

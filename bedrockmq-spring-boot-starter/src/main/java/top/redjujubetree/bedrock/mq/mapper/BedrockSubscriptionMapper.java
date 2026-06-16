@@ -55,4 +55,10 @@ public class BedrockSubscriptionMapper {
                 "UPDATE bedrock_subscription SET status = 0, updated_at = :now WHERE id = :id",
                 new MapSqlParameterSource().addValue("id", id).addValue("now", LocalDateTime.now()));
     }
+
+    public int updateMaxRetry(Long id, int maxRetry) {
+        return jdbc.update(
+                "UPDATE bedrock_subscription SET max_retry = :maxRetry, updated_at = :now WHERE id = :id",
+                new MapSqlParameterSource().addValue("id", id).addValue("maxRetry", maxRetry).addValue("now", LocalDateTime.now()));
+    }
 }

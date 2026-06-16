@@ -29,7 +29,8 @@ public class BedrockConsumeRecordMapper {
     private static final String JOIN_COLUMNS =
             "cr.id, cr.message_id, cr.topic, cr.consumer, cr.status, cr.node_id, " +
             "cr.retry_count, cr.max_retry, cr.error_msg, cr.scheduled_at, cr.created_at, cr.updated_at, " +
-            "m.payload, m.message_source";
+            "m.payload, m.message_source, " +
+            "m.created_at AS message_created_at, m.updated_at AS message_updated_at";
 
     private static final String JOIN_FROM =
             " FROM bedrock_consume_record cr JOIN bedrock_message m ON m.id = cr.message_id ";
