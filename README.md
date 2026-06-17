@@ -23,7 +23,7 @@
 |------|------|
 | Spring Boot | 2.7.18 |
 | MySQL | 5.7+ |
-| mysql-connector-j | 8.0.33 |
+| mysql-connector-java | 8.0.33 |
 | SQLite | —（通过 `db-dialect=sqlite` 或自动检测启用） |
 | Jackson | 随 Spring Boot BOM |
 
@@ -111,7 +111,7 @@ producer.sendBatch(List.of(
 |------|--------|------|
 | `bedrock.mq.enabled` | `true` | 模块总开关，引入 starter 后默认启用；设为 `false` 可禁用 |
 | `bedrock.mq.node-id` | hostname + 随机串 | 集群节点唯一标识 |
-| `bedrock.mq.batch-size` | `10` | 每次轮询拉取的消息数 |
+| `bedrock.mq.batch-size` | `10` | 每个 (topic, consumer) 每次轮询拉取的消息数 |
 | `bedrock.mq.poll-interval-ms` | `1000` | 轮询间隔（毫秒） |
 | `bedrock.mq.processing-timeout-minutes` | `15` | 处理超时判定（分钟） |
 | `bedrock.mq.default-concurrency` | `1` | 默认消费线程数 |
@@ -167,7 +167,7 @@ spring.datasource.driver-class-name=org.sqlite.JDBC
 | 表 | 说明 |
 |----|------|
 | `bedrock_message` | 不可变消息日志，写入后不更新 |
-| `bedrock_subscription` | 消费者订阅注册，启动时 UPSERT |
+| `bedrock_subscription` | 消费者订阅注册，启动时按需插入（已有行保留不变） |
 | `bedrock_consume_record` | 每条消息 × 每个 consumer 的消费状态 |
 
 详见 [bedrockmq-docs/docs/database-schema.md](bedrockmq-docs/docs/database-schema.md)。
