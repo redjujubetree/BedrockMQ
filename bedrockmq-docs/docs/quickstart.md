@@ -18,7 +18,7 @@ Run the DDL against your database instance. This creates three tables: `bedrock_
 <dependency>
     <groupId>top.redjujubetree</groupId>
     <artifactId>bedrockmq-spring-boot-starter</artifactId>
-    <version>1.0.0-SNAPSHOT</version>
+    <version>${latestVersion}</version>
 </dependency>
 ```
 
