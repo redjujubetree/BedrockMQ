@@ -34,6 +34,11 @@ bedrock.mq.enabled=false
 
 See [API Reference — Configuration](api-reference.md#configuration) for all optional tuning properties.
 
+When upgrading an existing database from a version without fixed processing deadlines, run the matching migration once before deployment:
+
+- MySQL: `migration-processing-expires-mysql.sql`
+- SQLite: `migration-processing-expires-sqlite.sql`
+
 ## 4. Write a consumer
 
 `@BedrockConsumer` is meta-annotated with `@Component`, so it registers the class as a Spring bean automatically — no separate `@Component` or `@Service` needed.
@@ -60,7 +65,7 @@ For pub-sub fan-out (multiple consumers on the same topic):
 public class BillingProcessor implements MessageProcessor { ... }
 ```
 
-On startup `ProcessorRegistry` registers both handlers into `bedrock_subscription` (insert-if-not-exists) and starts independent polling threads for each. If a row already exists, the DB values for `max_retry` and `status` are kept as-is; `@BedrockConsumer(maxRetry=N)` only takes effect on first insert.
+On startup `ProcessorRegistry` registers both handlers into `bedrock_subscription` (insert-if-not-exists). All registered pairs share one multi-thread polling scheduler, while each pair keeps its independently sized worker pool. If a row already exists, the DB values for `max_retry` and `status` are kept as-is; `@BedrockConsumer(maxRetry=N)` only takes effect on first insert.
 
 ## 5. Send a message
 

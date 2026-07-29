@@ -101,8 +101,7 @@ public class BedrockAutoConfiguration {
     }
 
     @Bean
-    public TimeoutRecoveryTask timeoutRecoveryTask(BedrockConsumeRecordMapper consumeRecordMapper,
-                                                   BedrockMqProperties properties) {
-        return new TimeoutRecoveryTask(consumeRecordMapper, properties);
+    public TimeoutRecoveryTask timeoutRecoveryTask(BedrockConsumeRecordMapper consumeRecordMapper) {
+        return new TimeoutRecoveryTask(consumeRecordMapper);
     }
 }

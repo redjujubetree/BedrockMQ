@@ -7,7 +7,7 @@
     <parent>
         <groupId>top.redjujubetree</groupId>
         <artifactId>bedrockmq-parent</artifactId>
-        <version>${revision}</version>
+        <version>${bedrock.mq.revision}</version>
     </parent>
 
     <artifactId>bedrockmq-docs</artifactId>

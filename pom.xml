@@ -13,7 +13,7 @@
 
     <groupId>top.redjujubetree</groupId>
     <artifactId>bedrockmq-parent</artifactId>
-    <version>${revision}</version>
+    <version>${bedrock.mq.revision}</version>
     <packaging>pom</packaging>
     <name>bedrock-mq</name>
     <description>Database-backed distributed message queue for Spring Boot</description>
@@ -36,7 +36,7 @@
     </modules>
 
     <properties>
-        <revision>0.0.4</revision>
+        <bedrock.mq.revision>0.0.5</bedrock.mq.revision>
         <java.version>1.8</java.version>
         <maven.compiler.source>1.8</maven.compiler.source>
         <maven.compiler.target>1.8</maven.compiler.target>

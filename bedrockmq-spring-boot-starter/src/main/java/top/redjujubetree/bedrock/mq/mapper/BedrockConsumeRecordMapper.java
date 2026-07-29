@@ -27,7 +27,8 @@ public class BedrockConsumeRecordMapper {
             "VALUES (:messageId, :topic, :consumer, :status, :retryCount, :maxRetry, :scheduledAt, 0, :createdAt, :updatedAt)";
 
     private static final String JOIN_COLUMNS =
-            "cr.id, cr.message_id, cr.topic, cr.consumer, cr.status, cr.node_id, " +
+            "cr.id, cr.message_id, cr.topic, cr.consumer, cr.status, cr.node_id, cr.processing_token, " +
+            "cr.processing_started_at, cr.processing_expires_at, " +
             "cr.retry_count, cr.max_retry, cr.error_msg, cr.scheduled_at, cr.created_at, cr.updated_at, " +
             "m.payload, m.message_source, " +
             "m.created_at AS message_created_at, m.updated_at AS message_updated_at";
@@ -54,25 +55,30 @@ public class BedrockConsumeRecordMapper {
         return total;
     }
 
-    public int tryAcquire(Long id, String nodeId) {
-        String sql = "UPDATE bedrock_consume_record SET status = " + MessageStatus.PROCESSING + ", node_id = :nodeId, updated_at = :now " +
-                     "WHERE id = :id AND status = " + MessageStatus.PENDING;
+    public int tryAcquire(Long id, String nodeId, String processingToken,
+                          LocalDateTime now, LocalDateTime processingExpiresAt) {
+        String sql = "UPDATE bedrock_consume_record SET status = " + MessageStatus.PROCESSING +
+                     ", node_id = :nodeId, processing_token = :processingToken, " +
+                     "processing_started_at = :now, processing_expires_at = :processingExpiresAt, " +
+                     "updated_at = :now " +
+                     "WHERE id = :id AND status = " + MessageStatus.PENDING + " AND deleted = 0";
         return jdbc.update(sql, new MapSqlParameterSource()
                 .addValue("id", id)
                 .addValue("nodeId", nodeId)
-                .addValue("now", LocalDateTime.now()));
+                .addValue("processingToken", processingToken)
+                .addValue("now", now)
+                .addValue("processingExpiresAt", processingExpiresAt));
     }
 
-    public int recoverTimeoutRecords(int minutes) {
-        LocalDateTime threshold = LocalDateTime.now().minusMinutes(minutes);
+    public int recoverTimedOutRecords(LocalDateTime now) {
         String sql = "UPDATE bedrock_consume_record " +
                      "SET status = CASE WHEN retry_count + 1 >= max_retry THEN " + MessageStatus.FAILED + " ELSE " + MessageStatus.PENDING + " END, " +
-                     "    retry_count = retry_count + 1, node_id = NULL, " +
-                     "    error_msg = 'Timeout: processing node may have crashed', updated_at = :now " +
-                     "WHERE status = " + MessageStatus.PROCESSING + " AND updated_at < :threshold AND deleted = 0";
-        return jdbc.update(sql, new MapSqlParameterSource()
-                .addValue("now", LocalDateTime.now())
-                .addValue("threshold", threshold));
+                     "    retry_count = retry_count + 1, node_id = NULL, processing_token = NULL, " +
+                     "    processing_started_at = NULL, processing_expires_at = NULL, " +
+                     "    error_msg = 'Timeout: processing deadline exceeded', updated_at = :now " +
+                     "WHERE status = " + MessageStatus.PROCESSING + " AND deleted = 0 " +
+                     "AND processing_expires_at <= :now";
+        return jdbc.update(sql, new MapSqlParameterSource("now", now));
     }
 
     public List<BedrockConsumeRecord> selectPending(String topic, String consumer, int limit) {
@@ -100,29 +106,43 @@ public class BedrockConsumeRecordMapper {
         return results.isEmpty() ? null : results.get(0);
     }
 
-    public void markCompleted(Long id, LocalDateTime updatedAt) {
+    public int markCompleted(Long id, String processingToken, LocalDateTime updatedAt) {
         String sql = "UPDATE bedrock_consume_record " +
-                     "SET status = " + MessageStatus.COMPLETED + ", error_msg = NULL, updated_at = :updatedAt WHERE id = :id";
-        jdbc.update(sql, new MapSqlParameterSource().addValue("id", id).addValue("updatedAt", updatedAt));
+                     "SET status = " + MessageStatus.COMPLETED + ", node_id = NULL, processing_token = NULL, " +
+                     "processing_started_at = NULL, processing_expires_at = NULL, " +
+                     "error_msg = NULL, updated_at = :updatedAt " +
+                     "WHERE id = :id AND status = " + MessageStatus.PROCESSING +
+                     " AND processing_token = :processingToken";
+        return jdbc.update(sql, new MapSqlParameterSource()
+                .addValue("id", id)
+                .addValue("processingToken", processingToken)
+                .addValue("updatedAt", updatedAt));
     }
 
-    public void markFailed(Long id, int status, int retryCount, String errorMsg, LocalDateTime updatedAt) {
+    public int markFailed(Long id, String processingToken, int status, int retryCount,
+                          String errorMsg, LocalDateTime updatedAt) {
         String sql = "UPDATE bedrock_consume_record " +
-                     "SET status = :status, retry_count = :retryCount, " +
-                     "error_msg = :errorMsg, updated_at = :updatedAt WHERE id = :id";
+                     "SET status = :status, retry_count = :retryCount, node_id = NULL, processing_token = NULL, " +
+                     "processing_started_at = NULL, processing_expires_at = NULL, " +
+                     "error_msg = :errorMsg, updated_at = :updatedAt " +
+                     "WHERE id = :id AND status = " + MessageStatus.PROCESSING +
+                     " AND processing_token = :processingToken";
         MapSqlParameterSource params = new MapSqlParameterSource()
                 .addValue("id", id)
+                .addValue("processingToken", processingToken)
                 .addValue("status", status)
                 .addValue("retryCount", retryCount)
                 .addValue("errorMsg", errorMsg)
                 .addValue("updatedAt", updatedAt);
-        jdbc.update(sql, params);
+        return jdbc.update(sql, params);
     }
 
     /** Resets a FAILED record back to PENDING; returns 1 if updated, 0 if not found or not FAILED. */
     public int resetToPending(Long id, LocalDateTime updatedAt) {
         String sql = "UPDATE bedrock_consume_record " +
-                     "SET status = " + MessageStatus.PENDING + ", retry_count = 0, node_id = NULL, error_msg = NULL, updated_at = :updatedAt " +
+                     "SET status = " + MessageStatus.PENDING + ", retry_count = 0, node_id = NULL, processing_token = NULL, " +
+                     "processing_started_at = NULL, processing_expires_at = NULL, " +
+                     "error_msg = NULL, updated_at = :updatedAt " +
                      "WHERE id = :id AND status = " + MessageStatus.FAILED;
         return jdbc.update(sql, new MapSqlParameterSource().addValue("id", id).addValue("updatedAt", updatedAt));
     }
@@ -130,7 +150,9 @@ public class BedrockConsumeRecordMapper {
     /** Batch-resets FAILED records back to PENDING; returns number of rows updated. */
     public int batchResetToPending(List<Long> ids, LocalDateTime updatedAt) {
         String sql = "UPDATE bedrock_consume_record " +
-                     "SET status = " + MessageStatus.PENDING + ", retry_count = 0, node_id = NULL, error_msg = NULL, updated_at = :updatedAt " +
+                     "SET status = " + MessageStatus.PENDING + ", retry_count = 0, node_id = NULL, processing_token = NULL, " +
+                     "processing_started_at = NULL, processing_expires_at = NULL, " +
+                     "error_msg = NULL, updated_at = :updatedAt " +
                      "WHERE id IN (:ids) AND status = " + MessageStatus.FAILED;
         return jdbc.update(sql, new MapSqlParameterSource().addValue("ids", ids).addValue("updatedAt", updatedAt));
     }
@@ -171,7 +193,8 @@ public class BedrockConsumeRecordMapper {
     public List<BedrockConsumeRecord> listMessages(String topic, String consumer, Integer status,
                                                     long offset, long limit) {
         StringBuilder sql = new StringBuilder(
-                "SELECT cr.id, cr.message_id, cr.topic, cr.consumer, cr.status, cr.node_id, " +
+                "SELECT cr.id, cr.message_id, cr.topic, cr.consumer, cr.status, cr.node_id, cr.processing_token, " +
+                "cr.processing_started_at, cr.processing_expires_at, " +
                 "cr.retry_count, cr.max_retry, cr.error_msg, cr.scheduled_at, cr.created_at, cr.updated_at, " +
                 "m.message_source " +
                 "FROM bedrock_consume_record cr JOIN bedrock_message m ON m.id = cr.message_id");

@@ -12,6 +12,7 @@ import org.slf4j.LoggerFactory;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 public class MessageConsumer {
 
@@ -27,6 +28,10 @@ public class MessageConsumer {
         this.consumeRecordMapper = consumeRecordMapper;
         this.registry = registry;
         this.properties = properties;
+        if (properties.getProcessingTimeoutMinutes() <= 0) {
+            throw new IllegalArgumentException(
+                    "bedrock.mq.processing-timeout-minutes must be > 0");
+        }
     }
 
     public void consume(BedrockConsumeRecord record) {
@@ -37,7 +42,13 @@ public class MessageConsumer {
             return;
         }
 
-        int acquired = consumeRecordMapper.tryAcquire(record.getId(), properties.getNodeId());
+        String processingToken = UUID.randomUUID().toString();
+        LocalDateTime processingStartedAt = LocalDateTime.now();
+        LocalDateTime processingExpiresAt = processingStartedAt
+                .plusMinutes(properties.getProcessingTimeoutMinutes());
+        int acquired = consumeRecordMapper.tryAcquire(
+                record.getId(), properties.getNodeId(), processingToken,
+                processingStartedAt, processingExpiresAt);
         if (acquired == 0) {
             return;
         }
@@ -45,13 +56,19 @@ public class MessageConsumer {
         BedrockMessage messageView = buildMessageView(record);
         try {
             processor.process(messageView);
-            markCompleted(record.getId());
-            log.info("Record processed successfully id={} topic={} consumer={}",
-                    record.getId(), record.getTopic(), record.getConsumer());
+            int updated = consumeRecordMapper.markCompleted(
+                    record.getId(), processingToken, LocalDateTime.now());
+            if (updated == 1) {
+                log.info("Record processed successfully id={} topic={} consumer={}",
+                        record.getId(), record.getTopic(), record.getConsumer());
+            } else {
+                log.warn("Ignored stale successful result because processing ownership was lost: id={}",
+                        record.getId());
+            }
         } catch (Exception e) {
             log.error("Record processing failed id={} topic={} consumer={} error={}",
                     record.getId(), record.getTopic(), record.getConsumer(), e.getMessage());
-            handleFailure(record, extractError(e));
+            handleFailure(record, processingToken, extractError(e));
         }
     }
 
@@ -66,14 +83,15 @@ public class MessageConsumer {
         return view;
     }
 
-    private void markCompleted(Long recordId) {
-        consumeRecordMapper.markCompleted(recordId, LocalDateTime.now());
-    }
-
-    private void handleFailure(BedrockConsumeRecord record, String errorMsg) {
+    private void handleFailure(BedrockConsumeRecord record, String processingToken, String errorMsg) {
         int nextRetry = record.getRetryCount() + 1;
         int newStatus = nextRetry >= record.getMaxRetry() ? MessageStatus.FAILED : MessageStatus.PENDING;
-        consumeRecordMapper.markFailed(record.getId(), newStatus, nextRetry, errorMsg, LocalDateTime.now());
+        int updated = consumeRecordMapper.markFailed(
+                record.getId(), processingToken, newStatus, nextRetry, errorMsg, LocalDateTime.now());
+        if (updated == 0) {
+            log.warn("Ignored stale failed result because processing ownership was lost: id={}",
+                    record.getId());
+        }
     }
 
     private String extractError(Exception e) {

@@ -300,6 +300,26 @@ class BedrockMessageControllerSqliteTest {
         assertThat(pending).noneMatch(r -> r.getId().equals(recordId));
     }
 
+    @Test
+    void fixedProcessingDeadlineAndTokenGuardWorkOnSqlite() {
+        Long recordId = insertPendingConsumeRecord();
+        LocalDateTime start = LocalDateTime.now();
+        LocalDateTime deadline = start.plusMinutes(30);
+        assertThat(consumeRecordMapper.tryAcquire(
+                recordId, "sqlite-node-a", "sqlite-token-a", start, deadline))
+                .isEqualTo(1);
+
+        assertThat(consumeRecordMapper.recoverTimedOutRecords(deadline.minusSeconds(1))).isZero();
+        assertThat(consumeRecordMapper.recoverTimedOutRecords(deadline)).isEqualTo(1);
+        assertThat(consumeRecordMapper.tryAcquire(
+                recordId, "sqlite-node-b", "sqlite-token-b", deadline,
+                deadline.plusMinutes(30))).isEqualTo(1);
+        assertThat(consumeRecordMapper.markCompleted(
+                recordId, "sqlite-token-a", deadline.plusSeconds(1))).isZero();
+        assertThat(consumeRecordMapper.markCompleted(
+                recordId, "sqlite-token-b", deadline.plusSeconds(1))).isEqualTo(1);
+    }
+
     // ── helpers ───────────────────────────────────────────────────────────────────
 
     @SuppressWarnings("unchecked")

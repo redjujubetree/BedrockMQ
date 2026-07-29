@@ -5,24 +5,13 @@ BedrockMQ uses three tables.
 - **MySQL**: run `bedrockmq-spring-boot-starter/src/main/resources/schema-mysql.sql`
 - **SQLite**: run `bedrockmq-spring-boot-starter/src/main/resources/schema-sqlite.sql`
 
+Executable DDL is maintained only in those canonical schema files. This document describes the model and state transitions without duplicating it.
+
 ---
 
 ## bedrock_message
 
 Immutable message log. Written once by the producer; never updated afterwards.
-
-```sql
-CREATE TABLE IF NOT EXISTS bedrock_message (
-    id             BIGINT       NOT NULL AUTO_INCREMENT COMMENT '自增主键',
-    topic          VARCHAR(64)  NOT NULL COMMENT '消息主题',
-    message_source VARCHAR(64)  NOT NULL COMMENT '消息发送方',
-    payload        TEXT         NOT NULL COMMENT 'JSON 格式业务数据',
-    created_at     DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-    updated_at     DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-    PRIMARY KEY (id),
-    INDEX idx_topic (topic)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='消息表（不可变）';
-```
 
 | Column | Type | Notes |
 |--------|------|-------|
@@ -38,20 +27,6 @@ CREATE TABLE IF NOT EXISTS bedrock_message (
 ## bedrock_subscription
 
 Consumer subscription registry. Registered at application startup by `ProcessorRegistry` for each `@BedrockConsumer` bean. If the row already exists in the database (identified by the `uk_topic_consumer` unique key), it is left unchanged — both `status` and `max_retry` are preserved. The `@BedrockConsumer(maxRetry=N)` value is only used when inserting a new row for the first time.
-
-```sql
-CREATE TABLE IF NOT EXISTS bedrock_subscription (
-    id         BIGINT       NOT NULL AUTO_INCREMENT COMMENT '自增主键',
-    topic      VARCHAR(64)  NOT NULL COMMENT '消息主题',
-    consumer   VARCHAR(64)  NOT NULL COMMENT '消费者标识',
-    max_retry  INT          NOT NULL DEFAULT 3 COMMENT '最大重试次数（含首次）',
-    status     TINYINT      NOT NULL DEFAULT 1 COMMENT '1=启用 0=停用',
-    created_at DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-    updated_at DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-    PRIMARY KEY (id),
-    UNIQUE KEY uk_topic_consumer (topic, consumer)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='消费者订阅表';
-```
 
 | Column | Type | Notes |
 |--------|------|-------|
@@ -69,27 +44,6 @@ Unique constraint `uk_topic_consumer` ensures one row per (topic, consumer) pair
 
 Per-consumer consumption state. One row is created for each enabled subscriber at produce time. All state transitions happen here; `bedrock_message` is never modified.
 
-```sql
-CREATE TABLE IF NOT EXISTS bedrock_consume_record (
-    id           BIGINT       NOT NULL AUTO_INCREMENT COMMENT '自增主键',
-    message_id   BIGINT       NOT NULL COMMENT '关联消息ID',
-    topic        VARCHAR(64)  NOT NULL COMMENT '消息主题',
-    consumer     VARCHAR(64)  NOT NULL COMMENT '消费者标识',
-    status       TINYINT      NOT NULL DEFAULT 0 COMMENT '0=PENDING 1=PROCESSING 2=COMPLETED 3=FAILED',
-    node_id      VARCHAR(128)          COMMENT '正在处理的节点标识',
-    retry_count  INT          NOT NULL DEFAULT 0 COMMENT '当前重试次数',
-    max_retry    INT          NOT NULL DEFAULT 3 COMMENT '最大执行次数（含首次）',
-    error_msg    VARCHAR(512)          COMMENT '失败原因',
-    scheduled_at DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '最早可处理时间',
-    deleted      TINYINT      NOT NULL DEFAULT 0 COMMENT '0=正常 1=已删除（逻辑删除）',
-    created_at   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-    updated_at   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-    PRIMARY KEY (id),
-    UNIQUE KEY uk_msg_consumer (message_id, consumer),
-    INDEX idx_topic_consumer_status_scheduled (topic, consumer, status, scheduled_at)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='消息消费记录表';
-```
-
 | Column | Type | Notes |
 |--------|------|-------|
 | id | BIGINT PK | Auto-increment |
@@ -98,12 +52,15 @@ CREATE TABLE IF NOT EXISTS bedrock_consume_record (
 | consumer | VARCHAR(64) | Consumer name |
 | status | TINYINT | State machine: `0`=PENDING → `1`=PROCESSING → `2`=COMPLETED / `3`=FAILED |
 | node_id | VARCHAR(128) | Set on CAS acquire; cleared on timeout recovery |
+| processing_token | VARCHAR(64) | Unique per execution attempt; required by final state updates |
+| processing_started_at | DATETIME | Start time of the current execution attempt |
+| processing_expires_at | DATETIME | Fixed timeout for the current attempt; never extended |
 | retry_count | INT | Incremented on each failure |
 | max_retry | INT | `retry_count + 1 >= max_retry` → FAILED |
 | error_msg | VARCHAR(512) | Truncated to 500 chars before write (leaves headroom for DB column limit) |
 | scheduled_at | DATETIME | Earliest eligible processing time; enables delayed messages |
 | deleted | TINYINT | `0`=normal, `1`=soft-deleted via admin; excluded from polling and admin list queries |
-| updated_at | DATETIME | Used by timeout recovery to detect stale PROCESSING rows |
+| updated_at | DATETIME | Last state-update time; timeout recovery does not use it |
 
 ### Status transitions
 
@@ -135,26 +92,36 @@ Distributed mutex without Redis:
 
 ```sql
 UPDATE bedrock_consume_record
-   SET status=1, node_id=#{nodeId}, updated_at=NOW()
- WHERE id=#{id} AND status=0
+   SET status=1,
+       node_id=:nodeId,
+       processing_token=:processingToken,
+       processing_started_at=:now,
+       processing_expires_at=:processingExpiresAt,
+       updated_at=:now
+ WHERE id=:id AND status=0 AND deleted=0
 ```
 
 `affected rows = 1` → this node owns the record. `= 0` → another node got there first; skip.
 
-### Timeout recovery
+### Fixed processing deadline and timeout recovery
 
-Rows stuck in PROCESSING for longer than `bedrock.mq.processing-timeout-minutes` are reset by `TimeoutRecoveryTask` (runs every 60 s):
+Acquire writes a unique `processing_token` and a `processing_expires_at` equal to the start time plus `processing-timeout-minutes`. The expiry is written once and is never renewed. Completion and failure updates require the same token, preventing a timed-out worker from overwriting a newer execution.
+
+Rows that reach their fixed deadline are reset by `TimeoutRecoveryTask` (runs every 60 s):
 
 ```sql
 UPDATE bedrock_consume_record
    SET status    = CASE WHEN retry_count + 1 >= max_retry THEN 3 ELSE 0 END,
        retry_count = retry_count + 1,
-       node_id   = NULL,
-       error_msg = 'Timeout: processing node may have crashed',
+       node_id = NULL,
+       processing_token = NULL,
+       processing_started_at = NULL,
+       processing_expires_at = NULL,
+       error_msg = 'Timeout: processing deadline exceeded',
        updated_at = :now
  WHERE status = 1
-   AND updated_at < :threshold
+   AND processing_expires_at <= :now
    AND deleted = 0
 ```
 
-The threshold (`NOW() - processingTimeoutMinutes`) is computed in Java and passed as a bound parameter.
+This design performs no heartbeat updates, but it requires choosing a timeout long enough for legitimate handlers. A worker crash may remain in PROCESSING until the fixed deadline, while a handler that runs beyond the deadline may overlap with a retry. Token-fenced final updates keep the older execution from overwriting the newer state. Existing databases must run `migration-processing-expires-mysql.sql` or `migration-processing-expires-sqlite.sql` once before deploying this version. PROCESSING rows without a deadline are not recovered automatically.

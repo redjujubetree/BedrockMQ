@@ -16,6 +16,7 @@ import java.util.Set;
 public class ProcessorRegistry {
 
     private static final Logger log = LoggerFactory.getLogger(ProcessorRegistry.class);
+    private static final char KEY_SEPARATOR = ':';
 
     private final ApplicationContext applicationContext;
     private final BedrockSubscriptionMapper subscriptionMapper;
@@ -67,11 +68,11 @@ public class ProcessorRegistry {
     }
 
     public static String key(String topic, String consumer) {
-        return topic + ":" + consumer;
+        return topic + KEY_SEPARATOR + consumer;
     }
 
     public static String[] splitKey(String key) {
-        int idx = key.indexOf(':');
+        int idx = key.indexOf(KEY_SEPARATOR);
         return new String[]{key.substring(0, idx), key.substring(idx + 1)};
     }
 }

@@ -1,6 +1,5 @@
 package top.redjujubetree.bedrock.mq.recovery;
 
-import top.redjujubetree.bedrock.mq.config.BedrockMqProperties;
 import top.redjujubetree.bedrock.mq.mapper.BedrockConsumeRecordMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -10,19 +9,18 @@ import org.springframework.beans.factory.InitializingBean;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.time.LocalDateTime;
 
 public class TimeoutRecoveryTask implements InitializingBean, DisposableBean {
 
     private static final Logger log = LoggerFactory.getLogger(TimeoutRecoveryTask.class);
 
     private final BedrockConsumeRecordMapper consumeRecordMapper;
-    private final BedrockMqProperties properties;
 
     private ScheduledExecutorService scheduler;
 
-    public TimeoutRecoveryTask(BedrockConsumeRecordMapper consumeRecordMapper, BedrockMqProperties properties) {
+    public TimeoutRecoveryTask(BedrockConsumeRecordMapper consumeRecordMapper) {
         this.consumeRecordMapper = consumeRecordMapper;
-        this.properties = properties;
     }
 
     @Override
@@ -32,7 +30,7 @@ public class TimeoutRecoveryTask implements InitializingBean, DisposableBean {
             t.setDaemon(true);
             return t;
         });
-        scheduler.scheduleWithFixedDelay(this::recover, 60, 60, TimeUnit.SECONDS);
+        scheduler.scheduleWithFixedDelay(this::recoverSafely, 60, 60, TimeUnit.SECONDS);
     }
 
     @Override
@@ -51,9 +49,18 @@ public class TimeoutRecoveryTask implements InitializingBean, DisposableBean {
     }
 
     void recover() {
-        int count = consumeRecordMapper.recoverTimeoutRecords(properties.getProcessingTimeoutMinutes());
+        LocalDateTime now = LocalDateTime.now();
+        int count = consumeRecordMapper.recoverTimedOutRecords(now);
         if (count > 0) {
-            log.warn("Recovered {} timeout consume records (timeout={}min)", count, properties.getProcessingTimeoutMinutes());
+            log.warn("Recovered {} records that exceeded their processing deadline", count);
+        }
+    }
+
+    void recoverSafely() {
+        try {
+            recover();
+        } catch (Exception e) {
+            log.error("Timeout recovery failed; will retry next cycle", e);
         }
     }
 }

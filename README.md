@@ -12,6 +12,7 @@
 - **延迟 / 定时消息** — 通过 `scheduledAt` 字段支持延迟投递
 - **自动重试** — 可按 consumer 独立配置重试次数，失败后自动重新入队
 - **节点宕机恢复** — 超时任务自动将卡在 PROCESSING 的记录重置
+- **固定处理期限** — 抢占时写入执行期限；唯一执行令牌阻止超时后的旧任务覆盖新状态
 - **多数据库支持** — 内置 MySQL 和 SQLite 方言，可通过 `db-dialect` 配置或自动检测
 - **管理后台** — 独立部署的 Web 管理界面，支持消息查看、重试、取消、发送
 
@@ -57,6 +58,8 @@
 
 MySQL：执行 `bedrockmq-spring-boot-starter/src/main/resources/schema-mysql.sql`。  
 SQLite：执行 `bedrockmq-spring-boot-starter/src/main/resources/schema-sqlite.sql`。
+
+已有数据库升级到固定处理期限版本时，需先执行一次对应的 `migration-processing-expires-mysql.sql` 或 `migration-processing-expires-sqlite.sql`。
 
 ### 3. 关闭模块（可选）
 
@@ -111,7 +114,7 @@ producer.sendBatch(List.of(
 |------|--------|------|
 | `bedrock.mq.enabled` | `true` | 模块总开关，引入 starter 后默认启用；设为 `false` 可禁用 |
 | `bedrock.mq.node-id` | hostname + 随机串 | 集群节点唯一标识 |
-| `bedrock.mq.batch-size` | `10` | 每个 (topic, consumer) 每次轮询拉取的消息数 |
+| `bedrock.mq.batch-size` | `10` | 每个 (topic, consumer) 每次轮询拉取上限；实际数量受 worker 可用容量限制 |
 | `bedrock.mq.poll-interval-ms` | `1000` | 轮询间隔（毫秒） |
 | `bedrock.mq.processing-timeout-minutes` | `15` | 处理超时判定（分钟） |
 | `bedrock.mq.default-concurrency` | `1` | 默认消费线程数 |

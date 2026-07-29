@@ -28,6 +28,9 @@ CREATE TABLE IF NOT EXISTS bedrock_consume_record (
     consumer     VARCHAR(64)  NOT NULL COMMENT '消费者标识',
     status       TINYINT      NOT NULL DEFAULT 0 COMMENT '0=PENDING 1=PROCESSING 2=COMPLETED 3=FAILED',
     node_id      VARCHAR(128)          COMMENT '正在处理的节点标识',
+    processing_token      VARCHAR(64)  COMMENT '本次执行的唯一所有权令牌',
+    processing_started_at DATETIME     COMMENT '本次执行开始时间',
+    processing_expires_at DATETIME     COMMENT '本次执行的固定超时时间',
     retry_count  INT          NOT NULL DEFAULT 0 COMMENT '当前重试次数',
     max_retry    INT          NOT NULL DEFAULT 3 COMMENT '最大执行次数（含首次）',
     error_msg    VARCHAR(512)          COMMENT '失败原因',
@@ -37,5 +40,6 @@ CREATE TABLE IF NOT EXISTS bedrock_consume_record (
     updated_at   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     PRIMARY KEY (id),
     UNIQUE KEY uk_msg_consumer (message_id, consumer),
-    INDEX idx_topic_consumer_status_scheduled (topic, consumer, status, scheduled_at)
+    INDEX idx_topic_consumer_status_scheduled (topic, consumer, status, scheduled_at),
+    INDEX idx_status_processing_expires (status, processing_expires_at, deleted)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='消息消费记录表';

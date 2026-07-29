@@ -1,5 +1,6 @@
 package top.redjujubetree.bedrock.mq.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.Data;
 
 import java.time.LocalDateTime;
@@ -18,6 +19,13 @@ public class BedrockConsumeRecord {
     private Integer status;
 
     private String nodeId;
+
+    @JsonIgnore
+    private String processingToken;
+
+    private LocalDateTime processingStartedAt;
+
+    private LocalDateTime processingExpiresAt;
 
     private Integer retryCount;
 

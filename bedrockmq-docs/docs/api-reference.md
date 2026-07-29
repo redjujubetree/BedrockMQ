@@ -97,7 +97,7 @@ All properties are under the `bedrock.mq.*` prefix in `application.properties`.
 |----------|---------|-------------|
 | `bedrock.mq.enabled` | `true` | Module master switch. Enabled by default when the starter is imported; set to `false` to disable |
 | `bedrock.mq.node-id` | hostname + random suffix | Unique node identifier used for the CAS acquire lock |
-| `bedrock.mq.batch-size` | `10` | Records fetched per poll per `(topic, consumer)` pair |
+| `bedrock.mq.batch-size` | `10` | Maximum records fetched per poll per pair; actual limit is capped by available worker capacity |
 | `bedrock.mq.poll-interval-ms` | `1000` | Poll interval in milliseconds |
 | `bedrock.mq.processing-timeout-minutes` | `15` | Minutes before a PROCESSING record is considered stuck and reset |
 | `bedrock.mq.default-concurrency` | `1` | Worker threads per `(topic, consumer)` pair |
