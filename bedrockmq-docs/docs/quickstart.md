@@ -45,13 +45,13 @@ When upgrading an existing database from a version without fixed processing dead
 
 ```java
 import top.redjujubetree.bedrock.mq.annotation.BedrockConsumer;
-import top.redjujubetree.bedrock.mq.processor.MessageProcessor;
+import top.redjujubetree.bedrock.mq.consumer.MessageConsumer;
 import top.redjujubetree.bedrock.mq.entity.BedrockMessage;
 
 @BedrockConsumer(value = "order", topic = "order")
-public class OrderProcessor implements MessageProcessor {
+public class OrderConsumer implements MessageConsumer {
     @Override
-    public void process(BedrockMessage message) throws Exception {
+    public void consume(BedrockMessage message) throws Exception {
         OrderDTO dto = objectMapper.readValue(message.getPayload(), OrderDTO.class);
         // business logic — throw to trigger retry, return normally to mark COMPLETED
     }
@@ -62,10 +62,10 @@ For pub-sub fan-out (multiple consumers on the same topic):
 
 ```java
 @BedrockConsumer(value = "billing", topic = "order", maxRetry = 5)
-public class BillingProcessor implements MessageProcessor { ... }
+public class BillingConsumer implements MessageConsumer { ... }
 ```
 
-On startup `ProcessorRegistry` registers both handlers into `bedrock_subscription` (insert-if-not-exists). All registered pairs share one multi-thread polling scheduler, while each pair keeps its independently sized worker pool. If a row already exists, the DB values for `max_retry` and `status` are kept as-is; `@BedrockConsumer(maxRetry=N)` only takes effect on first insert.
+On startup `ConsumerRegistry` registers both handlers into `bedrock_subscription` (insert-if-not-exists). All registered pairs share one multi-thread polling scheduler, while each pair keeps its independently sized worker pool. If a row already exists, the DB values for `max_retry` and `status` are kept as-is; `@BedrockConsumer(maxRetry=N)` only takes effect on first insert.
 
 ## 5. Send a message
 
@@ -82,7 +82,7 @@ producer.sendDelayed("order", "checkout-service", orderPayload, Duration.ofMinut
 producer.sendAt("order", "checkout-service", orderPayload, 3, LocalDateTime.of(2099, 1, 1, 0, 0));
 
 // Batch (single transaction)
-producer.sendBatch(List.of(
+producer.sendBatch(Arrays.asList(
     new BedrockMessageRequest("order",  "checkout-service", payload1),
     new BedrockMessageRequest("notify", "checkout-service", payload2)
 ));

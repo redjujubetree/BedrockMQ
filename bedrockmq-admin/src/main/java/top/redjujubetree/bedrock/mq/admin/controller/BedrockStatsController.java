@@ -21,8 +21,8 @@ public class BedrockStatsController {
         return ResponseEntity.ok(service.getStats());
     }
 
-    @GetMapping("/processors")
-    public ResponseEntity<?> processors() {
-        return ResponseEntity.ok(service.getRegisteredProcessors());
+    @GetMapping("/consumers")
+    public ResponseEntity<?> consumers() {
+        return ResponseEntity.ok(service.getRegisteredConsumers());
     }
 }

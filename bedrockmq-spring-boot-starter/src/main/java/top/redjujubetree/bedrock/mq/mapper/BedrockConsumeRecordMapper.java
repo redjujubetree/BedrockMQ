@@ -119,10 +119,12 @@ public class BedrockConsumeRecordMapper {
                 .addValue("updatedAt", updatedAt));
     }
 
-    public int markFailed(Long id, String processingToken, int status, int retryCount,
-                          String errorMsg, LocalDateTime updatedAt) {
+    public int markFailed(Long id, String processingToken, String errorMsg,
+                          LocalDateTime updatedAt) {
         String sql = "UPDATE bedrock_consume_record " +
-                     "SET status = :status, retry_count = :retryCount, node_id = NULL, processing_token = NULL, " +
+                     "SET status = CASE WHEN retry_count + 1 >= max_retry THEN " + MessageStatus.FAILED +
+                     " ELSE " + MessageStatus.PENDING + " END, retry_count = retry_count + 1, " +
+                     "node_id = NULL, processing_token = NULL, " +
                      "processing_started_at = NULL, processing_expires_at = NULL, " +
                      "error_msg = :errorMsg, updated_at = :updatedAt " +
                      "WHERE id = :id AND status = " + MessageStatus.PROCESSING +
@@ -130,8 +132,6 @@ public class BedrockConsumeRecordMapper {
         MapSqlParameterSource params = new MapSqlParameterSource()
                 .addValue("id", id)
                 .addValue("processingToken", processingToken)
-                .addValue("status", status)
-                .addValue("retryCount", retryCount)
                 .addValue("errorMsg", errorMsg)
                 .addValue("updatedAt", updatedAt);
         return jdbc.update(sql, params);

@@ -102,6 +102,9 @@ public class MessageProducer {
         if (messageSource == null || messageSource.isEmpty()) {
             throw new IllegalArgumentException("messageSource must not be null or empty");
         }
+        if (payload == null) {
+            throw new IllegalArgumentException("payload must not be null");
+        }
         LocalDateTime now = LocalDateTime.now();
         BedrockMessage message = new BedrockMessage();
         message.setTopic(topic);

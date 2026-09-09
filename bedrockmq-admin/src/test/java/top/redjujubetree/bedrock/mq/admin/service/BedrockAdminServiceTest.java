@@ -296,10 +296,10 @@ class BedrockAdminServiceTest {
         assertThat(service.getStats()).isEqualTo(stats);
     }
 
-    // ── getRegisteredProcessors ───────────────────────────────────────────────────
+    // Registered consumers
 
     @Test
-    void getRegisteredProcessors_returnsOnlyEnabledSubscriptionKeys() {
+    void getRegisteredConsumers_returnsOnlyEnabledSubscriptionKeys() {
         BedrockSubscription enabled = new BedrockSubscription();
         enabled.setTopic("order");
         enabled.setConsumer("order");
@@ -312,13 +312,13 @@ class BedrockAdminServiceTest {
 
         when(subscriptionMapper.findAll()).thenReturn(Arrays.asList(enabled, disabled));
 
-        assertThat(service.getRegisteredProcessors()).containsExactly("order:order");
+        assertThat(service.getRegisteredConsumers()).containsExactly("order:order");
     }
 
     @Test
-    void getRegisteredProcessors_returnsEmptySetWhenNoEnabledSubscriptions() {
+    void getRegisteredConsumers_returnsEmptySetWhenNoEnabledSubscriptions() {
         when(subscriptionMapper.findAll()).thenReturn(Collections.emptyList());
-        assertThat(service.getRegisteredProcessors()).isEmpty();
+        assertThat(service.getRegisteredConsumers()).isEmpty();
     }
 
     // ── helpers ───────────────────────────────────────────────────────────────────

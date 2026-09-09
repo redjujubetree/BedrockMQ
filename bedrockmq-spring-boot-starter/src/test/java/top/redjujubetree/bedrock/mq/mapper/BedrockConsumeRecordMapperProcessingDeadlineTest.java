@@ -6,6 +6,10 @@ import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import top.redjujubetree.bedrock.mq.constant.MessageStatus;
+import top.redjujubetree.bedrock.mq.config.BedrockMqProperties;
+import top.redjujubetree.bedrock.mq.consumer.ConsumerRegistry;
+import top.redjujubetree.bedrock.mq.consumer.MessageConsumer;
+import top.redjujubetree.bedrock.mq.consumer.MessageProcessor;
 import top.redjujubetree.bedrock.mq.entity.BedrockConsumeRecord;
 
 import java.time.LocalDateTime;
@@ -51,8 +55,8 @@ class BedrockConsumeRecordMapperProcessingDeadlineTest {
                 firstDeadline.plusMinutes(30))).isEqualTo(1);
 
         assertThat(mapper.markCompleted(id, "token-a", firstDeadline.plusSeconds(1))).isZero();
-        assertThat(mapper.markFailed(id, "token-a", MessageStatus.FAILED, 2,
-                "stale failure", firstDeadline.plusSeconds(1))).isZero();
+        assertThat(mapper.markFailed(id, "token-a", "stale failure",
+                firstDeadline.plusSeconds(1))).isZero();
         assertThat(mapper.markCompleted(id, "token-b", firstDeadline.plusSeconds(2))).isEqualTo(1);
 
         BedrockConsumeRecord saved = mapper.selectById(id);
@@ -87,13 +91,36 @@ class BedrockConsumeRecordMapperProcessingDeadlineTest {
         assertThat(mapper.tryAcquire(id, "node-a", "token-a", start,
                 start.plusMinutes(30))).isEqualTo(1);
 
-        assertThat(mapper.markFailed(id, "token-a", MessageStatus.PENDING, 1,
-                "temporary failure", start.plusSeconds(1))).isEqualTo(1);
+        assertThat(mapper.markFailed(id, "token-a", "temporary failure",
+                start.plusSeconds(1))).isEqualTo(1);
 
         BedrockConsumeRecord saved = mapper.selectById(id);
         assertThat(saved.getStatus()).isEqualTo(MessageStatus.PENDING);
         assertThat(saved.getProcessingToken()).isNull();
         assertThat(saved.getProcessingExpiresAt()).isNull();
+    }
+
+    @Test
+    void staleSnapshotsStillIncrementRetryCountFromCurrentDatabaseValue() {
+        Long id = insertRecord(MessageStatus.PENDING, LocalDateTime.of(2026, 7, 13, 10, 0), 2);
+        BedrockConsumeRecord firstSnapshot = mapper.selectById(id);
+        BedrockConsumeRecord secondSnapshot = mapper.selectById(id);
+
+        ConsumerRegistry registry = new ConsumerRegistry(null, null) {
+            @Override
+            public MessageConsumer getConsumer(String topic, String consumerName) {
+                return message -> { throw new IllegalStateException("handler failure"); };
+            }
+        };
+        MessageProcessor processor = new MessageProcessor(
+                mapper, registry, new BedrockMqProperties());
+
+        processor.process(firstSnapshot);
+        processor.process(secondSnapshot);
+
+        BedrockConsumeRecord saved = mapper.selectById(id);
+        assertThat(saved.getRetryCount()).isEqualTo(2);
+        assertThat(saved.getStatus()).isEqualTo(MessageStatus.FAILED);
     }
 
     @Test
@@ -110,13 +137,17 @@ class BedrockConsumeRecordMapperProcessingDeadlineTest {
     }
 
     private Long insertRecord(int status, LocalDateTime updatedAt) {
+        return insertRecord(status, updatedAt, 3);
+    }
+
+    private Long insertRecord(int status, LocalDateTime updatedAt, int maxRetry) {
         BedrockConsumeRecord record = new BedrockConsumeRecord();
         record.setMessageId(1L);
         record.setTopic("order");
         record.setConsumer("billing");
         record.setStatus(status);
         record.setRetryCount(0);
-        record.setMaxRetry(3);
+        record.setMaxRetry(maxRetry);
         record.setScheduledAt(updatedAt);
         record.setCreatedAt(updatedAt);
         record.setUpdatedAt(updatedAt);

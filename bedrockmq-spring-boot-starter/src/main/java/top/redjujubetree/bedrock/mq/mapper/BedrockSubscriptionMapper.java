@@ -23,7 +23,7 @@ public class BedrockSubscriptionMapper {
         this.dialect = dialect;
     }
 
-    /** Upsert: insert on new, update max_retry on conflict. Status is NOT overwritten (preserves admin disable). */
+    /** Inserts a subscription when absent; existing status and max_retry are preserved. */
     public void upsert(String topic, String consumer, int maxRetry) {
         MapSqlParameterSource params = new MapSqlParameterSource()
                 .addValue("topic", topic)

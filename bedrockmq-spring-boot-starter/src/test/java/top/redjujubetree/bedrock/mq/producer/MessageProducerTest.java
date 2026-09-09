@@ -189,6 +189,21 @@ class MessageProducerTest {
                 .hasMessageContaining("Failed to serialize payload");
     }
 
+    @Test
+    void send_throwsWhenPayloadIsNull() {
+        assertThatThrownBy(() -> producer.send("order", "test", null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("payload");
+    }
+
+    @Test
+    void sendBatch_throwsWhenPayloadIsNull() {
+        assertThatThrownBy(() -> producer.sendBatch(Collections.singletonList(
+                new BedrockMessageRequest("order", "test", null))))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("payload");
+    }
+
     // ── sendBatch: per-request overrides ───────────────────────────────────────
 
     @Test

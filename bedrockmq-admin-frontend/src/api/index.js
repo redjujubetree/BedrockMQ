@@ -3,7 +3,7 @@ import axios from 'axios'
 const api = axios.create({ baseURL: '/bedrockmq-admin/bedrock' })
 
 export const getStats = () => api.get('/stats')
-export const getProcessors = () => api.get('/processors')
+export const getConsumers = () => api.get('/consumers')
 export const getMessages = (params) => api.get('/messages', { params })
 export const getMessage = (id) => api.get(`/messages/${id}`)
 export const retryMessage = (id) => api.post(`/messages/${id}/retry`)

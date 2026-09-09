@@ -5,8 +5,6 @@ import top.redjujubetree.bedrock.mq.constant.MessageStatus;
 import top.redjujubetree.bedrock.mq.entity.BedrockConsumeRecord;
 import top.redjujubetree.bedrock.mq.entity.BedrockMessage;
 import top.redjujubetree.bedrock.mq.mapper.BedrockConsumeRecordMapper;
-import top.redjujubetree.bedrock.mq.processor.MessageProcessor;
-import top.redjujubetree.bedrock.mq.processor.ProcessorRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -22,21 +20,23 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
-class MessageConsumerTest {
+class MessageProcessorTest {
 
     @Mock BedrockConsumeRecordMapper consumeRecordMapper;
-    @Mock ProcessorRegistry registry;
+    @Mock
+    ConsumerRegistry registry;
     @Mock BedrockMqProperties properties;
-    @Mock MessageProcessor processor;
+    @Mock
     MessageConsumer consumer;
+    MessageProcessor processor;
 
     @BeforeEach
     void setUp() {
         lenient().when(properties.getNodeId()).thenReturn("test-node");
         lenient().when(properties.getProcessingTimeoutMinutes()).thenReturn(15);
         lenient().when(consumeRecordMapper.markCompleted(anyLong(), anyString(), any())).thenReturn(1);
-        lenient().when(consumeRecordMapper.markFailed(anyLong(), anyString(), anyInt(), anyInt(), anyString(), any())).thenReturn(1);
-        consumer = new MessageConsumer(consumeRecordMapper, registry, properties);
+        lenient().when(consumeRecordMapper.markFailed(anyLong(), anyString(), anyString(), any())).thenReturn(1);
+        processor = new MessageProcessor(consumeRecordMapper, registry, properties);
     }
 
     private BedrockConsumeRecord buildRecord(int retryCount, int maxRetry) {
@@ -54,43 +54,43 @@ class MessageConsumerTest {
     }
 
     @Test
-    void consume_skipsAllProcessingWhenCasAcquireFails() {
-        when(registry.getProcessor("order", "order")).thenReturn(processor);
+    void process_skipsAllProcessingWhenCasAcquireFails() {
+        when(registry.getConsumer("order", "order")).thenReturn(consumer);
         when(consumeRecordMapper.tryAcquire(eq(1L), eq("test-node"), anyString(), any(), any())).thenReturn(0);
 
-        consumer.consume(buildRecord(0, 3));
+        processor.process(buildRecord(0, 3));
 
         verify(consumeRecordMapper, never()).markCompleted(anyLong(), anyString(), any());
     }
 
     @Test
-    void consume_skipsAcquireWhenNoProcessorRegistered() {
-        when(registry.getProcessor("order", "order")).thenReturn(null);
+    void process_skipsAcquireWhenNoConsumerRegistered() {
+        when(registry.getConsumer("order", "order")).thenReturn(null);
 
-        consumer.consume(buildRecord(0, 3));
+        processor.process(buildRecord(0, 3));
 
         verify(consumeRecordMapper, never()).tryAcquire(anyLong(), anyString(), anyString(), any(), any());
         verify(consumeRecordMapper, never()).markCompleted(anyLong(), anyString(), any());
     }
 
     @Test
-    void consume_marksCompletedAndClearsErrorMsgOnSuccess() throws Exception {
+    void process_marksCompletedAndClearsErrorMsgOnSuccess() throws Exception {
         when(consumeRecordMapper.tryAcquire(eq(1L), eq("test-node"), anyString(), any(), any())).thenReturn(1);
-        when(registry.getProcessor("order", "order")).thenReturn(processor);
+        when(registry.getConsumer("order", "order")).thenReturn(consumer);
 
-        consumer.consume(buildRecord(0, 3));
+        processor.process(buildRecord(0, 3));
 
-        verify(processor).process(any(BedrockMessage.class));
+        verify(consumer).consume(any(BedrockMessage.class));
         verify(consumeRecordMapper).markCompleted(eq(1L), anyString(), any(LocalDateTime.class));
     }
 
     @Test
-    void consume_setsFixedExpiryFromProcessingTimeout() throws Exception {
+    void process_setsFixedExpiryFromProcessingTimeout() throws Exception {
         when(consumeRecordMapper.tryAcquire(eq(1L), eq("test-node"), anyString(), any(), any()))
                 .thenReturn(1);
-        when(registry.getProcessor("order", "order")).thenReturn(processor);
+        when(registry.getConsumer("order", "order")).thenReturn(consumer);
 
-        consumer.consume(buildRecord(0, 3));
+        processor.process(buildRecord(0, 3));
 
         org.mockito.ArgumentCaptor<LocalDateTime> startedAt =
                 org.mockito.ArgumentCaptor.forClass(LocalDateTime.class);
@@ -106,68 +106,68 @@ class MessageConsumerTest {
     void constructor_rejectsNonPositiveProcessingTimeout() {
         when(properties.getProcessingTimeoutMinutes()).thenReturn(0);
 
-        assertThatThrownBy(() -> new MessageConsumer(consumeRecordMapper, registry, properties))
+        assertThatThrownBy(() -> new MessageProcessor(consumeRecordMapper, registry, properties))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("processing-timeout-minutes");
     }
 
     @Test
-    void consume_resetsStatusToPendingWhenRetriesAreRemaining() throws Exception {
+    void process_resetsStatusToPendingWhenRetriesAreRemaining() throws Exception {
         when(consumeRecordMapper.tryAcquire(eq(1L), eq("test-node"), anyString(), any(), any())).thenReturn(1);
-        when(registry.getProcessor("order", "order")).thenReturn(processor);
-        doThrow(new RuntimeException("db timeout")).when(processor).process(any());
+        when(registry.getConsumer("order", "order")).thenReturn(consumer);
+        doThrow(new RuntimeException("db timeout")).when(consumer).consume(any());
 
         // retryCount=0, maxRetry=3 → nextRetry(1) < maxRetry(3) → back to PENDING
-        consumer.consume(buildRecord(0, 3));
+        processor.process(buildRecord(0, 3));
 
-        verify(consumeRecordMapper).markFailed(eq(1L), anyString(), eq(MessageStatus.PENDING), eq(1), any(), any(LocalDateTime.class));
+        verify(consumeRecordMapper).markFailed(eq(1L), anyString(), any(), any(LocalDateTime.class));
     }
 
     @Test
-    void consume_marksFailedWhenMaxRetriesAreExhausted() throws Exception {
+    void process_marksFailedWhenMaxRetriesAreExhausted() throws Exception {
         when(consumeRecordMapper.tryAcquire(eq(1L), eq("test-node"), anyString(), any(), any())).thenReturn(1);
-        when(registry.getProcessor("order", "order")).thenReturn(processor);
-        doThrow(new RuntimeException("db timeout")).when(processor).process(any());
+        when(registry.getConsumer("order", "order")).thenReturn(consumer);
+        doThrow(new RuntimeException("db timeout")).when(consumer).consume(any());
 
         // retryCount=2, maxRetry=3 → nextRetry(3) >= maxRetry(3) → FAILED
-        consumer.consume(buildRecord(2, 3));
+        processor.process(buildRecord(2, 3));
 
-        verify(consumeRecordMapper).markFailed(eq(1L), anyString(), eq(MessageStatus.FAILED), eq(3), any(), any(LocalDateTime.class));
+        verify(consumeRecordMapper).markFailed(eq(1L), anyString(), any(), any(LocalDateTime.class));
     }
 
     @Test
-    void consume_handlesNullPointerExceptionWithNoMessageByFallingBackToStackTrace() throws Exception {
+    void process_handlesNullPointerExceptionWithNoMessageByFallingBackToStackTrace() throws Exception {
         when(consumeRecordMapper.tryAcquire(eq(1L), eq("test-node"), anyString(), any(), any())).thenReturn(1);
-        when(registry.getProcessor("order", "order")).thenReturn(processor);
-        doThrow(new NullPointerException()).when(processor).process(any());
+        when(registry.getConsumer("order", "order")).thenReturn(consumer);
+        doThrow(new NullPointerException()).when(consumer).consume(any());
 
-        consumer.consume(buildRecord(0, 3));
+        processor.process(buildRecord(0, 3));
 
-        verify(consumeRecordMapper).markFailed(eq(1L), anyString(), anyInt(), anyInt(), any(), any(LocalDateTime.class));
+        verify(consumeRecordMapper).markFailed(eq(1L), anyString(), any(), any(LocalDateTime.class));
     }
 
     @Test
-    void consume_marksFailedImmediatelyWhenMaxRetryIsOne() throws Exception {
+    void process_marksFailedImmediatelyWhenMaxRetryIsOne() throws Exception {
         when(consumeRecordMapper.tryAcquire(eq(1L), eq("test-node"), anyString(), any(), any())).thenReturn(1);
-        when(registry.getProcessor("order", "order")).thenReturn(processor);
-        doThrow(new RuntimeException("fail")).when(processor).process(any());
+        when(registry.getConsumer("order", "order")).thenReturn(consumer);
+        doThrow(new RuntimeException("fail")).when(consumer).consume(any());
 
         // retryCount=0, maxRetry=1 → nextRetry(1) >= maxRetry(1) → FAILED on first attempt
-        consumer.consume(buildRecord(0, 1));
+        processor.process(buildRecord(0, 1));
 
-        verify(consumeRecordMapper).markFailed(eq(1L), anyString(), eq(MessageStatus.FAILED), eq(1), any(), any(LocalDateTime.class));
+        verify(consumeRecordMapper).markFailed(eq(1L), anyString(), any(), any(LocalDateTime.class));
     }
 
     @Test
-    void consume_truncatesVeryLongExceptionMessage() throws Exception {
+    void process_truncatesVeryLongExceptionMessage() throws Exception {
         when(consumeRecordMapper.tryAcquire(eq(1L), eq("test-node"), anyString(), any(), any())).thenReturn(1);
-        when(registry.getProcessor("order", "order")).thenReturn(processor);
+        when(registry.getConsumer("order", "order")).thenReturn(consumer);
         StringBuilder sb = new StringBuilder(1000);
         for (int i = 0; i < 1000; i++) sb.append('x');
-        doThrow(new RuntimeException(sb.toString())).when(processor).process(any());
+        doThrow(new RuntimeException(sb.toString())).when(consumer).consume(any());
 
-        consumer.consume(buildRecord(0, 3));
+        processor.process(buildRecord(0, 3));
 
-        verify(consumeRecordMapper).markFailed(eq(1L), anyString(), anyInt(), anyInt(), any(), any(LocalDateTime.class));
+        verify(consumeRecordMapper).markFailed(eq(1L), anyString(), any(), any(LocalDateTime.class));
     }
 }

@@ -17,7 +17,7 @@ Inserts a message and fans out consume records immediately.
 |-----------|-------------|
 | topic | Message topic; routes to all enabled subscribers |
 | messageSource | Sending service name; required — throws `IllegalArgumentException` if null or empty |
-| payload | String passed through as-is; any other object is serialized to JSON |
+| payload | Required; String passed through as-is, any other non-null object is serialized to JSON |
 | maxRetry | `0` (default) = defer to each subscriber's `bedrock_subscription.max_retry` |
 
 Returns the generated `bedrock_message.id`.
@@ -52,7 +52,7 @@ Inserts all messages and their consume records in a single transaction.
 |-------|------|---------|-------------|
 | topic | String | required | Message topic |
 | messageSource | String | required | Sending service name |
-| payload | Object | required | Business data |
+| payload | Object | required | Business data; must not be null |
 | maxRetry | int | 0 | `0` = use subscription default |
 | scheduledAt | LocalDateTime | NOW() | Earliest eligible processing time |
 
@@ -66,15 +66,15 @@ Inserts all messages and their consume records in a single transaction.
     topic    = "topic-name",      // required; must not be empty
     maxRetry = 3                  // optional; stored in bedrock_subscription
 )
-public class MyProcessor implements MessageProcessor {
+public class MyConsumer implements MessageConsumer {
     @Override
-    public void process(BedrockMessage message) throws Exception {
+    public void consume(BedrockMessage message) throws Exception {
         // throw → retry; return normally → COMPLETED
     }
 }
 ```
 
-Both `value` and `topic` are required. `ProcessorRegistry` throws `IllegalStateException` at startup if either is blank.
+Both `value` and `topic` are required. `ConsumerRegistry` throws `IllegalStateException` at startup if either is blank or if the same `(topic, consumer)` pair is registered more than once.
 
 `BedrockMessage` fields available inside `process()`:
 

@@ -1,6 +1,7 @@
 package top.redjujubetree.bedrock.mq.config;
 
-import top.redjujubetree.bedrock.mq.consumer.MessageConsumer;
+import top.redjujubetree.bedrock.mq.consumer.ConsumerRegistry;
+import top.redjujubetree.bedrock.mq.consumer.MessageProcessor;
 import top.redjujubetree.bedrock.mq.consumer.PerTypePollingManager;
 import top.redjujubetree.bedrock.mq.dialect.MySqlDialect;
 import top.redjujubetree.bedrock.mq.dialect.SqlDialect;
@@ -8,7 +9,6 @@ import top.redjujubetree.bedrock.mq.dialect.SqliteDialect;
 import top.redjujubetree.bedrock.mq.mapper.BedrockConsumeRecordMapper;
 import top.redjujubetree.bedrock.mq.mapper.BedrockMessageMapper;
 import top.redjujubetree.bedrock.mq.mapper.BedrockSubscriptionMapper;
-import top.redjujubetree.bedrock.mq.processor.ProcessorRegistry;
 import top.redjujubetree.bedrock.mq.producer.MessageProducer;
 import top.redjujubetree.bedrock.mq.recovery.TimeoutRecoveryTask;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -72,16 +72,16 @@ public class BedrockAutoConfiguration {
     }
 
     @Bean
-    public ProcessorRegistry processorRegistry(ApplicationContext applicationContext,
-                                               BedrockSubscriptionMapper subscriptionMapper) {
-        return new ProcessorRegistry(applicationContext, subscriptionMapper);
+    public ConsumerRegistry consumerRegistry(ApplicationContext applicationContext,
+                                             BedrockSubscriptionMapper subscriptionMapper) {
+        return new ConsumerRegistry(applicationContext, subscriptionMapper);
     }
 
     @Bean
-    public MessageConsumer messageConsumer(BedrockConsumeRecordMapper consumeRecordMapper,
-                                          ProcessorRegistry registry,
-                                          BedrockMqProperties properties) {
-        return new MessageConsumer(consumeRecordMapper, registry, properties);
+    public MessageProcessor messageProcessor(BedrockConsumeRecordMapper consumeRecordMapper,
+                                             ConsumerRegistry registry,
+                                             BedrockMqProperties properties) {
+        return new MessageProcessor(consumeRecordMapper, registry, properties);
     }
 
     @Bean
@@ -94,10 +94,10 @@ public class BedrockAutoConfiguration {
 
     @Bean
     public PerTypePollingManager perTypePollingManager(BedrockConsumeRecordMapper consumeRecordMapper,
-                                                       MessageConsumer consumer,
-                                                       ProcessorRegistry registry,
+                                                       MessageProcessor processor,
+                                                       ConsumerRegistry registry,
                                                        BedrockMqProperties properties) {
-        return new PerTypePollingManager(consumeRecordMapper, consumer, registry, properties);
+        return new PerTypePollingManager(consumeRecordMapper, processor, registry, properties);
     }
 
     @Bean

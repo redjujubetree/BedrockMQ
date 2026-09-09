@@ -25,6 +25,11 @@
 
     <dependencies>
         <dependency>
+            <groupId>com.alibaba</groupId>
+            <artifactId>fastjson</artifactId>
+            <version>1.2.84</version>
+        </dependency>
+        <dependency>
             <groupId>top.redjujubetree</groupId>
             <artifactId>bedrockmq-spring-boot-starter</artifactId>
         </dependency>

@@ -1,4 +1,4 @@
-package top.redjujubetree.bedrock.mq.processor;
+package top.redjujubetree.bedrock.mq.consumer;
 
 import top.redjujubetree.bedrock.mq.annotation.BedrockConsumer;
 import top.redjujubetree.bedrock.mq.mapper.BedrockSubscriptionMapper;
@@ -7,24 +7,25 @@ import org.slf4j.LoggerFactory;
 import org.springframework.aop.support.AopUtils;
 import org.springframework.context.ApplicationContext;
 import org.springframework.core.annotation.AnnotationUtils;
+
 import javax.annotation.PostConstruct;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 
-public class ProcessorRegistry {
+public class ConsumerRegistry {
 
-    private static final Logger log = LoggerFactory.getLogger(ProcessorRegistry.class);
+    private static final Logger log = LoggerFactory.getLogger(ConsumerRegistry.class);
     private static final char KEY_SEPARATOR = ':';
 
     private final ApplicationContext applicationContext;
     private final BedrockSubscriptionMapper subscriptionMapper;
 
     /** Key: "topic:consumer" */
-    private final Map<String, MessageProcessor> registry = new HashMap<>();
+    private final Map<String, MessageConsumer> registry = new HashMap<>();
 
-    public ProcessorRegistry(ApplicationContext applicationContext, BedrockSubscriptionMapper subscriptionMapper) {
+    public ConsumerRegistry(ApplicationContext applicationContext, BedrockSubscriptionMapper subscriptionMapper) {
         this.applicationContext = applicationContext;
         this.subscriptionMapper = subscriptionMapper;
     }
@@ -34,7 +35,7 @@ public class ProcessorRegistry {
         Map<String, Object> beans = applicationContext.getBeansWithAnnotation(BedrockConsumer.class);
         for (Map.Entry<String, Object> entry : beans.entrySet()) {
             Object bean = entry.getValue();
-            if (!(bean instanceof MessageProcessor)) {
+            if (!(bean instanceof MessageConsumer)) {
                 continue;
             }
             BedrockConsumer annotation = AnnotationUtils.findAnnotation(
@@ -42,24 +43,30 @@ public class ProcessorRegistry {
             if (annotation == null) {
                 continue;
             }
-            String consumer = annotation.value();
+            String consumerName = annotation.value();
             String topic = annotation.topic();
-            if (topic.isEmpty() || consumer.isEmpty()) {
+            if (topic.isEmpty() || consumerName.isEmpty()) {
                 throw new IllegalStateException(
                         "@BedrockConsumer on " + AopUtils.getTargetClass(bean).getName()
                                 + " has an empty topic or consumer name");
             }
             int maxRetry = annotation.maxRetry();
 
-            registry.put(key(topic, consumer), (MessageProcessor) bean);
-            subscriptionMapper.upsert(topic, consumer, maxRetry);
-            log.info("Registered processor: topic={} consumer={} class={}", topic, consumer,
+            String registryKey = key(topic, consumerName);
+            if (registry.containsKey(registryKey)) {
+                throw new IllegalStateException(
+                        "Duplicate @BedrockConsumer registration for topic=" + topic
+                                + " consumer=" + consumerName);
+            }
+            registry.put(registryKey, (MessageConsumer) bean);
+            subscriptionMapper.upsert(topic, consumerName, maxRetry);
+            log.info("Registered consumer: topic={} consumer={} class={}", topic, consumerName,
                     AopUtils.getTargetClass(bean).getSimpleName());
         }
     }
 
-    public MessageProcessor getProcessor(String topic, String consumer) {
-        return registry.get(key(topic, consumer));
+    public MessageConsumer getConsumer(String topic, String consumerName) {
+        return registry.get(key(topic, consumerName));
     }
 
     /** Returns all registered (topic, consumer) keys as "topic:consumer" strings. */
@@ -67,8 +74,8 @@ public class ProcessorRegistry {
         return Collections.unmodifiableSet(registry.keySet());
     }
 
-    public static String key(String topic, String consumer) {
-        return topic + KEY_SEPARATOR + consumer;
+    public static String key(String topic, String consumerName) {
+        return topic + KEY_SEPARATOR + consumerName;
     }
 
     public static String[] splitKey(String key) {

@@ -3,7 +3,6 @@ package top.redjujubetree.bedrock.mq.consumer;
 import top.redjujubetree.bedrock.mq.config.BedrockMqProperties;
 import top.redjujubetree.bedrock.mq.entity.BedrockConsumeRecord;
 import top.redjujubetree.bedrock.mq.mapper.BedrockConsumeRecordMapper;
-import top.redjujubetree.bedrock.mq.processor.ProcessorRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.DisposableBean;
@@ -21,8 +20,8 @@ public class PerTypePollingManager implements InitializingBean, DisposableBean {
     private static final int POLLING_SCHEDULER_THREADS = 2;
 
     private final BedrockConsumeRecordMapper consumeRecordMapper;
-    private final MessageConsumer consumer;
-    private final ProcessorRegistry registry;
+    private final MessageProcessor processor;
+    private final ConsumerRegistry registry;
     private final BedrockMqProperties properties;
 
     private final List<ThreadPoolExecutor> workerPools = new ArrayList<>();
@@ -30,11 +29,11 @@ public class PerTypePollingManager implements InitializingBean, DisposableBean {
     private ScheduledExecutorService scheduler;
 
     public PerTypePollingManager(BedrockConsumeRecordMapper consumeRecordMapper,
-                                 MessageConsumer consumer,
-                                 ProcessorRegistry registry,
+                                 MessageProcessor processor,
+                                 ConsumerRegistry registry,
                                  BedrockMqProperties properties) {
         this.consumeRecordMapper = consumeRecordMapper;
-        this.consumer = consumer;
+        this.processor = processor;
         this.registry = registry;
         this.properties = properties;
     }
@@ -48,7 +47,7 @@ public class PerTypePollingManager implements InitializingBean, DisposableBean {
 
         scheduler = createPollingScheduler();
         for (String registryKey : registeredKeys) {
-            String[] parts = ProcessorRegistry.splitKey(registryKey);
+            String[] parts = ConsumerRegistry.splitKey(registryKey);
             String topic = parts[0];
             String consumerName = parts[1];
             int concurrency = properties.getConcurrencyFor(registryKey);
@@ -104,7 +103,7 @@ public class PerTypePollingManager implements InitializingBean, DisposableBean {
                     consumeRecordMapper.selectPending(topic, consumerName, limit);
             for (BedrockConsumeRecord record : records) {
                 try {
-                    workerPool.execute(() -> consumer.consume(record));
+                    workerPool.execute(() -> processor.process(record));
                 } catch (RejectedExecutionException e) {
                     // CAS acquisition happens inside the task, so this and all remaining
                     // records are still PENDING and can be fetched by a later poll.

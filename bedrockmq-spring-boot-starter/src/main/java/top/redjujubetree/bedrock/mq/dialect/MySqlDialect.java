@@ -4,7 +4,8 @@ public class MySqlDialect implements SqlDialect {
 
     @Override
     public String upsertSubscriptionSql() {
-        return "INSERT IGNORE INTO bedrock_subscription (topic, consumer, max_retry, status, created_at, updated_at) " +
-               "VALUES (:topic, :consumer, :maxRetry, 1, :now, :now)";
+        return "INSERT INTO bedrock_subscription (topic, consumer, max_retry, status, created_at, updated_at) " +
+               "VALUES (:topic, :consumer, :maxRetry, 1, :now, :now) " +
+               "ON DUPLICATE KEY UPDATE id = id";
     }
 }

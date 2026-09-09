@@ -73,9 +73,9 @@ bedrock.mq.enabled=false
 
 ```java
 @BedrockConsumer(value = "order", topic = "order")
-public class OrderProcessor implements MessageProcessor {
+public class OrderConsumer implements MessageConsumer {
     @Override
-    public void process(BedrockMessage message) throws Exception {
+    public void consume(BedrockMessage message) throws Exception {
         // 抛出异常 → 触发重试；正常返回 → 标记 COMPLETED
         OrderDTO order = objectMapper.readValue(message.getPayload(), OrderDTO.class);
         // 业务逻辑...
@@ -84,7 +84,7 @@ public class OrderProcessor implements MessageProcessor {
 
 // 同一 topic，多个独立 consumer
 @BedrockConsumer(value = "billing", topic = "order", maxRetry = 5)
-public class BillingProcessor implements MessageProcessor { ... }
+public class BillingConsumer implements MessageConsumer { ... }
 ```
 
 ### 5. 发送消息
@@ -100,7 +100,7 @@ producer.send("order", "order-service", orderDTO);
 producer.sendDelayed("order", "order-service", orderDTO, Duration.ofMinutes(10));
 
 // 批量发送（单事务）
-producer.sendBatch(List.of(
+producer.sendBatch(Arrays.asList(
     new BedrockMessageRequest("order", "order-service", dto1),
     new BedrockMessageRequest("notify", "notify-service", dto2)
 ));

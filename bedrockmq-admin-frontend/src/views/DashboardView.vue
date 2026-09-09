@@ -55,12 +55,12 @@
 
       <el-col :span="7">
         <el-card style="min-height: 200px">
-          <template #header>已注册处理器</template>
-          <div v-if="processors.length === 0" style="color: #999; text-align: center; padding: 24px 0">
-            暂无注册处理器
+          <template #header>已注册消费者</template>
+          <div v-if="consumers.length === 0" style="color: #999; text-align: center; padding: 24px 0">
+            暂无注册消费者
           </div>
           <div v-else style="display: flex; flex-wrap: wrap; gap: 8px">
-            <el-tag v-for="p in processors" :key="p" type="success">{{ p }}</el-tag>
+            <el-tag v-for="consumer in consumers" :key="consumer" type="success">{{ consumer }}</el-tag>
           </div>
         </el-card>
       </el-col>
@@ -70,11 +70,11 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { getStats, getProcessors } from '../api/index.js'
+import { getStats, getConsumers } from '../api/index.js'
 
 const loading = ref(false)
 const statsItems = ref([])
-const processors = ref([])
+const consumers = ref([])
 
 const PENDING = 0, PROCESSING = 1, COMPLETED = 2, FAILED = 3
 
@@ -116,9 +116,9 @@ const summaryCards = computed(() => {
 async function load() {
   loading.value = true
   try {
-    const [s, p] = await Promise.all([getStats(), getProcessors()])
-    statsItems.value = s.data ?? []
-    processors.value = Array.from(p.data ?? [])
+    const [statsResponse, consumersResponse] = await Promise.all([getStats(), getConsumers()])
+    statsItems.value = statsResponse.data ?? []
+    consumers.value = Array.from(consumersResponse.data ?? [])
   } catch (e) {
     console.error('Failed to load dashboard data', e)
   } finally {

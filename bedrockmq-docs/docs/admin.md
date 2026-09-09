@@ -41,7 +41,7 @@ http://localhost:9527/bedrockmq-admin/bedrock/...
 
 To change the port or context path, set `server.port` / `server.servlet.context-path` in `application.properties`.
 
-The admin module has no consumer processors of its own. `ProcessorRegistry` will register zero handlers on startup — the shared polling scheduler is not created and no messages are consumed by the admin JVM.
+The admin module has no consumer handlers of its own. `ConsumerRegistry` will register zero handlers on startup — the shared polling scheduler is not created and no messages are consumed by the admin JVM.
 
 ---
 
@@ -220,10 +220,10 @@ Example response:
 ]
 ```
 
-#### Registered processors
+#### Registered consumers
 
 ```
-GET /bedrock/processors
+GET /bedrock/consumers
 ```
 
 Returns the `topic:consumer` keys for all enabled subscriptions in `bedrock_subscription` (status=1). This reflects the DB state, not an in-memory registry — the list is populated regardless of whether a consumer JVM is running.

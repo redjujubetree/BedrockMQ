@@ -82,7 +82,7 @@ git diff --check
 
 - 引入 starter 后默认启用。
 - 显式设置 `bedrock.mq.enabled=false` 时，模块内所有基础设施 Bean 均不加载。
-- `MessageProducer`、`MessageConsumer`、`ProcessorRegistry`、`PerTypePollingManager`、`TimeoutRecoveryTask` 和 Mapper 不加独立 `@Component`，统一由自动配置创建。
+- `MessageProducer`、`MessageProcessor`、`ConsumerRegistry`、`PerTypePollingManager`、`TimeoutRecoveryTask` 和 Mapper 不加独立 `@Component`，统一由自动配置创建。
 - `@EnableConfigurationProperties` 继续受总开关控制。
 - 不要在宿主应用中隐式启用 `@Scheduled`、组件扫描或额外全局配置。
 
@@ -97,7 +97,7 @@ BedrockMQ 使用三张表：
 核心约束：
 
 - Producer 发布时查询启用的订阅，并同步创建独立消费记录，实现 Pub-Sub 扇出。
-- Producer 不依赖 `ProcessorRegistry`，生产者与消费者 JVM 可以完全分离。
+- Producer 不依赖 `ConsumerRegistry`，生产者与消费者 JVM 可以完全分离。
 - 停用订阅只阻止新消息扇出；已有消费记录仍可继续消费。
 - `created_at`、`updated_at` 由 Java 显式赋值，避免依赖不同数据库的默认时间行为。
 - `bedrock_message` 删除、更新或状态字段不得与消费状态混合。
@@ -179,9 +179,9 @@ worker 队列容量等于 `batch-size`，并使用 `AbortPolicy`。每次轮询�
 
 ## 处理器注册
 
-`@BedrockConsumer` 同时是 Spring stereotype，处理器必须实现 `MessageProcessor`。
+`@BedrockConsumer` 同时是 Spring stereotype，消费者必须实现 `MessageConsumer`。
 
-`ProcessorRegistry`：
+`ConsumerRegistry`：
 
 1. 使用 `ApplicationContext.getBeansWithAnnotation()` 查找 Bean。
 2. 使用以下方式兼容 CGLIB/JDK 代理：
@@ -193,7 +193,7 @@ AnnotationUtils.findAnnotation(
 )
 ```
 
-3. 建立 `topic:consumer -> processor` 映射。
+3. 建立 `topic:consumer -> consumer` 映射。
 4. 对新订阅执行 insert-if-not-exists；已有 DB 行的 `status` 和 `max_retry` 必须保留。
 
 同一个 `(topic, consumer)` 应只有一个处理器。修改注册逻辑时应检测重复并在启动时明确失败，不能静默覆盖。

@@ -1,4 +1,4 @@
-package top.redjujubetree.bedrock.mq.processor;
+package top.redjujubetree.bedrock.mq.consumer;
 
 import top.redjujubetree.bedrock.mq.annotation.BedrockConsumer;
 import top.redjujubetree.bedrock.mq.entity.BedrockMessage;
@@ -18,63 +18,68 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
-class ProcessorRegistryTest {
+class ConsumerRegistryTest {
 
     @Mock ApplicationContext ctx;
     @Mock BedrockSubscriptionMapper subscriptionMapper;
 
     @BedrockConsumer(value = "order", topic = "order")
-    static class OrderProcessor implements MessageProcessor {
-        @Override public void process(BedrockMessage message) {}
+    static class OrderConsumer implements MessageConsumer {
+        @Override public void consume(BedrockMessage message) {}
+    }
+
+    @BedrockConsumer(value = "order", topic = "order")
+    static class DuplicateOrderConsumer implements MessageConsumer {
+        @Override public void consume(BedrockMessage message) {}
     }
 
     @BedrockConsumer(value = "notify", topic = "notify")
-    static class NotifyProcessor implements MessageProcessor {
-        @Override public void process(BedrockMessage message) {}
+    static class NotifyConsumer implements MessageConsumer {
+        @Override public void consume(BedrockMessage message) {}
     }
 
     /** fan-out: separate consumer on same topic */
     @BedrockConsumer(value = "inventory", topic = "order-created")
-    static class InventoryProcessor implements MessageProcessor {
-        @Override public void process(BedrockMessage message) {}
+    static class InventoryConsumer implements MessageConsumer {
+        @Override public void consume(BedrockMessage message) {}
     }
 
     @BedrockConsumer(value = "ignored", topic = "ignored")
-    static class NotAProcessor {}
+    static class NotAConsumer {}
 
     /** blank consumer name must throw */
     @BedrockConsumer(value = "", topic = "some-topic")
-    static class BlankConsumerProcessor implements MessageProcessor {
-        @Override public void process(BedrockMessage message) {}
+    static class BlankConsumerConsumer implements MessageConsumer {
+        @Override public void consume(BedrockMessage message) {}
     }
 
     /** blank topic must throw */
     @BedrockConsumer(value = "some-consumer", topic = "")
-    static class BlankTopicProcessor implements MessageProcessor {
-        @Override public void process(BedrockMessage message) {}
+    static class BlankTopicConsumer implements MessageConsumer {
+        @Override public void consume(BedrockMessage message) {}
     }
 
     @Test
-    void init_registersAllMessageProcessorBeans() {
+    void init_registersAllMessageConsumerBeans() {
         Map<String, Object> beans = new HashMap<>();
-        beans.put("orderProcessor", new OrderProcessor());
-        beans.put("notifyProcessor", new NotifyProcessor());
+        beans.put("orderConsumer", new OrderConsumer());
+        beans.put("notifyConsumer", new NotifyConsumer());
         when(ctx.getBeansWithAnnotation(BedrockConsumer.class)).thenReturn(beans);
 
-        ProcessorRegistry registry = new ProcessorRegistry(ctx, subscriptionMapper);
+        ConsumerRegistry registry = new ConsumerRegistry(ctx, subscriptionMapper);
         registry.init();
 
-        assertThat(registry.getProcessor("order", "order")).isInstanceOf(OrderProcessor.class);
-        assertThat(registry.getProcessor("notify", "notify")).isInstanceOf(NotifyProcessor.class);
+        assertThat(registry.getConsumer("order", "order")).isInstanceOf(OrderConsumer.class);
+        assertThat(registry.getConsumer("notify", "notify")).isInstanceOf(NotifyConsumer.class);
     }
 
     @Test
-    void init_upsertsSingleSubscriptionPerProcessor() {
+    void init_upsertsSingleSubscriptionPerConsumer() {
         Map<String, Object> beans = new HashMap<>();
-        beans.put("orderProcessor", new OrderProcessor());
+        beans.put("orderConsumer", new OrderConsumer());
         when(ctx.getBeansWithAnnotation(BedrockConsumer.class)).thenReturn(beans);
 
-        ProcessorRegistry registry = new ProcessorRegistry(ctx, subscriptionMapper);
+        ConsumerRegistry registry = new ConsumerRegistry(ctx, subscriptionMapper);
         registry.init();
 
         verify(subscriptionMapper).upsert("order", "order", 3);
@@ -83,36 +88,36 @@ class ProcessorRegistryTest {
     @Test
     void init_resolvesTopicFromAnnotationWhenExplicitlySet() {
         Map<String, Object> beans = new HashMap<>();
-        beans.put("inventoryProcessor", new InventoryProcessor());
+        beans.put("inventoryConsumer", new InventoryConsumer());
         when(ctx.getBeansWithAnnotation(BedrockConsumer.class)).thenReturn(beans);
 
-        ProcessorRegistry registry = new ProcessorRegistry(ctx, subscriptionMapper);
+        ConsumerRegistry registry = new ConsumerRegistry(ctx, subscriptionMapper);
         registry.init();
 
-        assertThat(registry.getProcessor("order-created", "inventory")).isInstanceOf(InventoryProcessor.class);
+        assertThat(registry.getConsumer("order-created", "inventory")).isInstanceOf(InventoryConsumer.class);
         verify(subscriptionMapper).upsert("order-created", "inventory", 3);
     }
 
     @Test
-    void getProcessor_returnsNullForUnregisteredTopicConsumerPair() {
+    void getConsumer_returnsNullForUnregisteredTopicConsumerPair() {
         when(ctx.getBeansWithAnnotation(BedrockConsumer.class)).thenReturn(new HashMap<>());
 
-        ProcessorRegistry registry = new ProcessorRegistry(ctx, subscriptionMapper);
+        ConsumerRegistry registry = new ConsumerRegistry(ctx, subscriptionMapper);
         registry.init();
 
-        assertThat(registry.getProcessor("unknown", "consumer")).isNull();
+        assertThat(registry.getConsumer("unknown", "consumer")).isNull();
     }
 
     @Test
-    void init_ignoresBeansThatDoNotImplementMessageProcessor() {
+    void init_ignoresBeansThatDoNotImplementMessageConsumer() {
         Map<String, Object> beans = new HashMap<>();
-        beans.put("notAProcessor", new NotAProcessor());
+        beans.put("notAConsumer", new NotAConsumer());
         when(ctx.getBeansWithAnnotation(BedrockConsumer.class)).thenReturn(beans);
 
-        ProcessorRegistry registry = new ProcessorRegistry(ctx, subscriptionMapper);
+        ConsumerRegistry registry = new ConsumerRegistry(ctx, subscriptionMapper);
         registry.init();
 
-        assertThat(registry.getProcessor("ignored", "ignored")).isNull();
+        assertThat(registry.getConsumer("ignored", "ignored")).isNull();
         verify(subscriptionMapper, never()).upsert(any(), any(), anyInt());
     }
 
@@ -120,7 +125,7 @@ class ProcessorRegistryTest {
     void init_registersNothingWhenContextHasNoAnnotatedBeans() {
         when(ctx.getBeansWithAnnotation(BedrockConsumer.class)).thenReturn(new HashMap<>());
 
-        ProcessorRegistry registry = new ProcessorRegistry(ctx, subscriptionMapper);
+        ConsumerRegistry registry = new ConsumerRegistry(ctx, subscriptionMapper);
         registry.init();
 
         assertThat(registry.getRegisteredKeys()).isEmpty();
@@ -129,10 +134,10 @@ class ProcessorRegistryTest {
     @Test
     void init_throwsWhenConsumerNameIsBlank() {
         Map<String, Object> beans = new HashMap<>();
-        beans.put("blankConsumerProcessor", new BlankConsumerProcessor());
+        beans.put("blankConsumer", new BlankConsumerConsumer());
         when(ctx.getBeansWithAnnotation(BedrockConsumer.class)).thenReturn(beans);
 
-        ProcessorRegistry registry = new ProcessorRegistry(ctx, subscriptionMapper);
+        ConsumerRegistry registry = new ConsumerRegistry(ctx, subscriptionMapper);
 
         assertThatThrownBy(registry::init)
                 .isInstanceOf(IllegalStateException.class)
@@ -142,10 +147,10 @@ class ProcessorRegistryTest {
     @Test
     void init_throwsWhenTopicIsBlank() {
         Map<String, Object> beans = new HashMap<>();
-        beans.put("blankTopicProcessor", new BlankTopicProcessor());
+        beans.put("blankTopicConsumer", new BlankTopicConsumer());
         when(ctx.getBeansWithAnnotation(BedrockConsumer.class)).thenReturn(beans);
 
-        ProcessorRegistry registry = new ProcessorRegistry(ctx, subscriptionMapper);
+        ConsumerRegistry registry = new ConsumerRegistry(ctx, subscriptionMapper);
 
         assertThatThrownBy(registry::init)
                 .isInstanceOf(IllegalStateException.class)
@@ -153,24 +158,38 @@ class ProcessorRegistryTest {
     }
 
     @Test
+    void init_throwsWhenTopicConsumerPairIsDuplicated() {
+        Map<String, Object> beans = new HashMap<>();
+        beans.put("orderConsumer", new OrderConsumer());
+        beans.put("duplicateOrderConsumer", new DuplicateOrderConsumer());
+        when(ctx.getBeansWithAnnotation(BedrockConsumer.class)).thenReturn(beans);
+
+        ConsumerRegistry registry = new ConsumerRegistry(ctx, subscriptionMapper);
+
+        assertThatThrownBy(registry::init)
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Duplicate @BedrockConsumer registration");
+    }
+
+    @Test
     void init_resolvesAnnotationThroughSpringJdkProxy() {
         // JDK proxy: proxy class itself does not carry @BedrockConsumer, but
-        // AopUtils.getTargetClass() unwraps it to OrderProcessor where the annotation lives.
-        OrderProcessor target = new OrderProcessor();
+        // AopUtils.getTargetClass() unwraps it to OrderConsumer where the annotation lives.
+        OrderConsumer target = new OrderConsumer();
         ProxyFactory pf = new ProxyFactory(target);
-        pf.addInterface(MessageProcessor.class);
-        MessageProcessor jdkProxy = (MessageProcessor) pf.getProxy();
+        pf.addInterface(MessageConsumer.class);
+        MessageConsumer jdkProxy = (MessageConsumer) pf.getProxy();
 
         assertThat(jdkProxy.getClass().getAnnotation(BedrockConsumer.class)).isNull();
 
         Map<String, Object> beans = new HashMap<>();
-        beans.put("orderProcessor", jdkProxy);
+        beans.put("orderConsumer", jdkProxy);
         when(ctx.getBeansWithAnnotation(BedrockConsumer.class)).thenReturn(beans);
 
-        ProcessorRegistry registry = new ProcessorRegistry(ctx, subscriptionMapper);
+        ConsumerRegistry registry = new ConsumerRegistry(ctx, subscriptionMapper);
         registry.init();
 
-        assertThat(registry.getProcessor("order", "order")).isNotNull();
+        assertThat(registry.getConsumer("order", "order")).isNotNull();
         verify(subscriptionMapper).upsert("order", "order", 3);
     }
 }

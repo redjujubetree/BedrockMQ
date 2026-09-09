@@ -26,7 +26,7 @@ Immutable message log. Written once by the producer; never updated afterwards.
 
 ## bedrock_subscription
 
-Consumer subscription registry. Registered at application startup by `ProcessorRegistry` for each `@BedrockConsumer` bean. If the row already exists in the database (identified by the `uk_topic_consumer` unique key), it is left unchanged — both `status` and `max_retry` are preserved. The `@BedrockConsumer(maxRetry=N)` value is only used when inserting a new row for the first time.
+Consumer subscription registry. Registered at application startup by `ConsumerRegistry` for each `@BedrockConsumer` bean. If the row already exists in the database (identified by the `uk_topic_consumer` unique key), it is left unchanged — both `status` and `max_retry` are preserved. The `@BedrockConsumer(maxRetry=N)` value is only used when inserting a new row for the first time.
 
 | Column | Type | Notes |
 |--------|------|-------|

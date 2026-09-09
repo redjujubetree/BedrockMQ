@@ -13,12 +13,15 @@ import org.springframework.test.web.servlet.MvcResult;
 import top.redjujubetree.bedrock.mq.constant.MessageStatus;
 import top.redjujubetree.bedrock.mq.entity.BedrockConsumeRecord;
 import top.redjujubetree.bedrock.mq.entity.BedrockMessage;
+import top.redjujubetree.bedrock.mq.entity.BedrockSubscription;
 import top.redjujubetree.bedrock.mq.mapper.BedrockConsumeRecordMapper;
 import top.redjujubetree.bedrock.mq.mapper.BedrockMessageMapper;
+import top.redjujubetree.bedrock.mq.mapper.BedrockSubscriptionMapper;
 import top.redjujubetree.bedrock.mq.recovery.TimeoutRecoveryTask;
 
 import java.time.LocalDateTime;
 import java.util.Map;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -33,6 +36,7 @@ class BedrockMessageControllerTest {
     @Autowired MockMvc mvc;
     @Autowired BedrockMessageMapper messageMapper;
     @Autowired BedrockConsumeRecordMapper consumeRecordMapper;
+    @Autowired BedrockSubscriptionMapper subscriptionMapper;
     @Autowired ObjectMapper objectMapper;
     @MockBean TimeoutRecoveryTask timeoutRecoveryTask;
 
@@ -74,6 +78,32 @@ class BedrockMessageControllerTest {
                         .content(body))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error").exists());
+    }
+
+    @Test
+    void subscriptionUpsert_preservesExistingConfigurationOnDuplicate() {
+        String topic = "dialect-" + UUID.randomUUID().toString();
+        String consumer = "consumer";
+        subscriptionMapper.upsert(topic, consumer, 3);
+        BedrockSubscription subscription = subscriptionMapper.findAll().stream()
+                .filter(item -> topic.equals(item.getTopic()) && consumer.equals(item.getConsumer()))
+                .findFirst().get();
+
+        subscriptionMapper.disable(subscription.getId());
+        subscriptionMapper.upsert(topic, consumer, 9);
+
+        BedrockSubscription saved = subscriptionMapper.findAll().stream()
+                .filter(item -> topic.equals(item.getTopic()) && consumer.equals(item.getConsumer()))
+                .findFirst().get();
+        assertThat(saved.getMaxRetry()).isEqualTo(3);
+        assertThat(saved.getStatus()).isEqualTo(0);
+    }
+
+    @Test
+    void consumers_returnsRegisteredConsumerKeys() throws Exception {
+        mvc.perform(get("/bedrock/consumers"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isArray());
     }
 
     // ── 消费记录（重试） ───────────────────────────────────────────────────────────

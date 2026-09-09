@@ -3,7 +3,6 @@ package top.redjujubetree.bedrock.mq.consumer;
 import top.redjujubetree.bedrock.mq.config.BedrockMqProperties;
 import top.redjujubetree.bedrock.mq.entity.BedrockConsumeRecord;
 import top.redjujubetree.bedrock.mq.mapper.BedrockConsumeRecordMapper;
-import top.redjujubetree.bedrock.mq.processor.ProcessorRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -31,8 +30,10 @@ import static org.mockito.Mockito.*;
 class PerTypePollingManagerTest {
 
     @Mock BedrockConsumeRecordMapper consumeRecordMapper;
-    @Mock MessageConsumer consumer;
-    @Mock ProcessorRegistry registry;
+    @Mock
+    MessageProcessor processor;
+    @Mock
+    ConsumerRegistry registry;
     @Mock BedrockMqProperties properties;
     @Mock ThreadPoolExecutor workerPool;
 
@@ -44,7 +45,7 @@ class PerTypePollingManagerTest {
         lenient().when(workerPool.getMaximumPoolSize()).thenReturn(1);
         lenient().when(workerPool.getActiveCount()).thenReturn(0);
         lenient().when(workerPool.getQueue()).thenReturn(new ArrayBlockingQueue<Runnable>(9));
-        manager = new PerTypePollingManager(consumeRecordMapper, consumer, registry, properties);
+        manager = new PerTypePollingManager(consumeRecordMapper, processor, registry, properties);
     }
 
     @Test
@@ -135,7 +136,7 @@ class PerTypePollingManagerTest {
         when(properties.getPollIntervalMs()).thenReturn(3_600_000L);
         AtomicInteger schedulerCreations = new AtomicInteger();
         manager = new PerTypePollingManager(
-                consumeRecordMapper, consumer, registry, properties) {
+                consumeRecordMapper, processor, registry, properties) {
             @Override
             ScheduledExecutorService createPollingScheduler() {
                 schedulerCreations.incrementAndGet();
@@ -215,7 +216,7 @@ class PerTypePollingManagerTest {
         manager.poll("order", "order", workerPool);
 
         verify(workerPool, times(1)).execute(any(Runnable.class));
-        verifyNoInteractions(consumer);
+        verifyNoInteractions(processor);
     }
 
     private void await(CountDownLatch latch) {

@@ -75,7 +75,7 @@ public class BedrockAdminService {
         return consumeRecordMapper.selectStatusCountByTopicAndConsumer();
     }
 
-    public Set<String> getRegisteredProcessors() {
+    public Set<String> getRegisteredConsumers() {
         return subscriptionMapper.findAll().stream()
                 .filter(s -> s.getStatus() == 1)
                 .map(s -> s.getTopic() + ":" + s.getConsumer())
