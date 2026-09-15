@@ -31,9 +31,9 @@ class PerTypePollingManagerTest {
 
     @Mock BedrockConsumeRecordMapper consumeRecordMapper;
     @Mock
-    MessageProcessor processor;
+    BedrockMessageProcessor processor;
     @Mock
-    ConsumerRegistry registry;
+    BedrockConsumerRegistry registry;
     @Mock BedrockMqProperties properties;
     @Mock ThreadPoolExecutor workerPool;
 

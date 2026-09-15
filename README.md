@@ -71,9 +71,11 @@ bedrock.mq.enabled=false
 
 ### 4. 编写消费者
 
+消费者实现 `top.redjujubetree.bedrock.mq.consumer.BedrockMessageConsumer` 接口：
+
 ```java
 @BedrockConsumer(value = "order", topic = "order")
-public class OrderConsumer implements MessageConsumer {
+public class OrderConsumer implements BedrockMessageConsumer {
     @Override
     public void consume(BedrockMessage message) throws Exception {
         // 抛出异常 → 触发重试；正常返回 → 标记 COMPLETED
@@ -84,7 +86,7 @@ public class OrderConsumer implements MessageConsumer {
 
 // 同一 topic，多个独立 consumer
 @BedrockConsumer(value = "billing", topic = "order", maxRetry = 5)
-public class BillingConsumer implements MessageConsumer { ... }
+public class BillingConsumer implements BedrockMessageConsumer { ... }
 ```
 
 ### 5. 发送消息

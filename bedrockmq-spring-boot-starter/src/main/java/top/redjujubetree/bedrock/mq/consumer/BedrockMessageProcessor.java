@@ -11,17 +11,17 @@ import java.io.StringWriter;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
-public class MessageProcessor {
+public class BedrockMessageProcessor {
 
-    private static final Logger log = LoggerFactory.getLogger(MessageProcessor.class);
+    private static final Logger log = LoggerFactory.getLogger(BedrockMessageProcessor.class);
 
     private final BedrockConsumeRecordMapper consumeRecordMapper;
-    private final ConsumerRegistry registry;
+    private final BedrockConsumerRegistry registry;
     private final BedrockMqProperties properties;
 
-    public MessageProcessor(BedrockConsumeRecordMapper consumeRecordMapper,
-                            ConsumerRegistry registry,
-                            BedrockMqProperties properties) {
+    public BedrockMessageProcessor(BedrockConsumeRecordMapper consumeRecordMapper,
+                                   BedrockConsumerRegistry registry,
+                                   BedrockMqProperties properties) {
         this.consumeRecordMapper = consumeRecordMapper;
         this.registry = registry;
         this.properties = properties;
@@ -32,7 +32,7 @@ public class MessageProcessor {
     }
 
     public void process(BedrockConsumeRecord record) {
-        MessageConsumer consumer = registry.getConsumer(record.getTopic(), record.getConsumer());
+        BedrockMessageConsumer consumer = registry.getConsumer(record.getTopic(), record.getConsumer());
         if (consumer == null) {
             log.warn("No consumer found for topic={} consumer={}, skipping record id={}",
                     record.getTopic(), record.getConsumer(), record.getId());

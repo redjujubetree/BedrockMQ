@@ -7,9 +7,9 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import top.redjujubetree.bedrock.mq.constant.MessageStatus;
 import top.redjujubetree.bedrock.mq.config.BedrockMqProperties;
-import top.redjujubetree.bedrock.mq.consumer.ConsumerRegistry;
-import top.redjujubetree.bedrock.mq.consumer.MessageConsumer;
-import top.redjujubetree.bedrock.mq.consumer.MessageProcessor;
+import top.redjujubetree.bedrock.mq.consumer.BedrockConsumerRegistry;
+import top.redjujubetree.bedrock.mq.consumer.BedrockMessageConsumer;
+import top.redjujubetree.bedrock.mq.consumer.BedrockMessageProcessor;
 import top.redjujubetree.bedrock.mq.entity.BedrockConsumeRecord;
 
 import java.time.LocalDateTime;
@@ -106,13 +106,13 @@ class BedrockConsumeRecordMapperProcessingDeadlineTest {
         BedrockConsumeRecord firstSnapshot = mapper.selectById(id);
         BedrockConsumeRecord secondSnapshot = mapper.selectById(id);
 
-        ConsumerRegistry registry = new ConsumerRegistry(null, null) {
+        BedrockConsumerRegistry registry = new BedrockConsumerRegistry(null, null) {
             @Override
-            public MessageConsumer getConsumer(String topic, String consumerName) {
+            public BedrockMessageConsumer getConsumer(String topic, String consumerName) {
                 return message -> { throw new IllegalStateException("handler failure"); };
             }
         };
-        MessageProcessor processor = new MessageProcessor(
+        BedrockMessageProcessor processor = new BedrockMessageProcessor(
                 mapper, registry, new BedrockMqProperties());
 
         processor.process(firstSnapshot);

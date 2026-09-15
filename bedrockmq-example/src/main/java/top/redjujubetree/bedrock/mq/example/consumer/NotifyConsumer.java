@@ -6,11 +6,11 @@ import org.slf4j.LoggerFactory;
 import top.redjujubetree.bedrock.mq.annotation.BedrockConsumer;
 import top.redjujubetree.bedrock.mq.entity.BedrockMessage;
 import top.redjujubetree.bedrock.mq.example.dto.NotifyEvent;
-import top.redjujubetree.bedrock.mq.consumer.MessageConsumer;
+import top.redjujubetree.bedrock.mq.consumer.BedrockMessageConsumer;
 
 /** Handles push notifications on a separate "notify" topic. */
 @BedrockConsumer(value = "notify", topic = "notify")
-public class NotifyConsumer implements MessageConsumer {
+public class NotifyConsumer implements BedrockMessageConsumer {
 
     private static final Logger log = LoggerFactory.getLogger(NotifyConsumer.class);
 

@@ -14,18 +14,18 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 
-public class ConsumerRegistry {
+public class BedrockConsumerRegistry {
 
-    private static final Logger log = LoggerFactory.getLogger(ConsumerRegistry.class);
+    private static final Logger log = LoggerFactory.getLogger(BedrockConsumerRegistry.class);
     private static final char KEY_SEPARATOR = ':';
 
     private final ApplicationContext applicationContext;
     private final BedrockSubscriptionMapper subscriptionMapper;
 
     /** Key: "topic:consumer" */
-    private final Map<String, MessageConsumer> registry = new HashMap<>();
+    private final Map<String, BedrockMessageConsumer> registry = new HashMap<>();
 
-    public ConsumerRegistry(ApplicationContext applicationContext, BedrockSubscriptionMapper subscriptionMapper) {
+    public BedrockConsumerRegistry(ApplicationContext applicationContext, BedrockSubscriptionMapper subscriptionMapper) {
         this.applicationContext = applicationContext;
         this.subscriptionMapper = subscriptionMapper;
     }
@@ -35,7 +35,7 @@ public class ConsumerRegistry {
         Map<String, Object> beans = applicationContext.getBeansWithAnnotation(BedrockConsumer.class);
         for (Map.Entry<String, Object> entry : beans.entrySet()) {
             Object bean = entry.getValue();
-            if (!(bean instanceof MessageConsumer)) {
+            if (!(bean instanceof BedrockMessageConsumer)) {
                 continue;
             }
             BedrockConsumer annotation = AnnotationUtils.findAnnotation(
@@ -58,14 +58,14 @@ public class ConsumerRegistry {
                         "Duplicate @BedrockConsumer registration for topic=" + topic
                                 + " consumer=" + consumerName);
             }
-            registry.put(registryKey, (MessageConsumer) bean);
+            registry.put(registryKey, (BedrockMessageConsumer) bean);
             subscriptionMapper.upsert(topic, consumerName, maxRetry);
             log.info("Registered consumer: topic={} consumer={} class={}", topic, consumerName,
                     AopUtils.getTargetClass(bean).getSimpleName());
         }
     }
 
-    public MessageConsumer getConsumer(String topic, String consumerName) {
+    public BedrockMessageConsumer getConsumer(String topic, String consumerName) {
         return registry.get(key(topic, consumerName));
     }
 

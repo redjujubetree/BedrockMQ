@@ -60,13 +60,15 @@ Inserts all messages and their consume records in a single transaction.
 
 ## Consumer Annotation (`@BedrockConsumer`)
 
+Consumer beans must implement `top.redjujubetree.bedrock.mq.consumer.BedrockMessageConsumer`.
+
 ```java
 @BedrockConsumer(
     value    = "consumer-name",   // required; consumer identity, must be unique per topic
     topic    = "topic-name",      // required; must not be empty
     maxRetry = 3                  // optional; stored in bedrock_subscription
 )
-public class MyConsumer implements MessageConsumer {
+public class MyConsumer implements BedrockMessageConsumer {
     @Override
     public void consume(BedrockMessage message) throws Exception {
         // throw → retry; return normally → COMPLETED
@@ -74,9 +76,9 @@ public class MyConsumer implements MessageConsumer {
 }
 ```
 
-Both `value` and `topic` are required. `ConsumerRegistry` throws `IllegalStateException` at startup if either is blank or if the same `(topic, consumer)` pair is registered more than once.
+Both `value` and `topic` are required. `BedrockConsumerRegistry` throws `IllegalStateException` at startup if either is blank or if the same `(topic, consumer)` pair is registered more than once.
 
-`BedrockMessage` fields available inside `process()`:
+`BedrockMessage` fields available inside `consume()`:
 
 | Field | Source |
 |-------|--------|

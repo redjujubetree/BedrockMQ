@@ -39,17 +39,24 @@ When upgrading an existing database from a version without fixed processing dead
 - MySQL: `migration-processing-expires-mysql.sql`
 - SQLite: `migration-processing-expires-sqlite.sql`
 
+When upgrading application code, apply these source-level renames:
+
+- `MessageConsumer` → `BedrockMessageConsumer`
+- `MessageProcessor` → `BedrockMessageProcessor`
+
+The old types are no longer provided. The auto-configured processor bean name is now `bedrockMessageProcessor`.
+
 ## 4. Write a consumer
 
 `@BedrockConsumer` is meta-annotated with `@Component`, so it registers the class as a Spring bean automatically — no separate `@Component` or `@Service` needed.
 
 ```java
 import top.redjujubetree.bedrock.mq.annotation.BedrockConsumer;
-import top.redjujubetree.bedrock.mq.consumer.MessageConsumer;
+import top.redjujubetree.bedrock.mq.consumer.BedrockMessageConsumer;
 import top.redjujubetree.bedrock.mq.entity.BedrockMessage;
 
 @BedrockConsumer(value = "order", topic = "order")
-public class OrderConsumer implements MessageConsumer {
+public class OrderConsumer implements BedrockMessageConsumer {
     @Override
     public void consume(BedrockMessage message) throws Exception {
         OrderDTO dto = objectMapper.readValue(message.getPayload(), OrderDTO.class);
@@ -62,10 +69,10 @@ For pub-sub fan-out (multiple consumers on the same topic):
 
 ```java
 @BedrockConsumer(value = "billing", topic = "order", maxRetry = 5)
-public class BillingConsumer implements MessageConsumer { ... }
+public class BillingConsumer implements BedrockMessageConsumer { ... }
 ```
 
-On startup `ConsumerRegistry` registers both handlers into `bedrock_subscription` (insert-if-not-exists). All registered pairs share one multi-thread polling scheduler, while each pair keeps its independently sized worker pool. If a row already exists, the DB values for `max_retry` and `status` are kept as-is; `@BedrockConsumer(maxRetry=N)` only takes effect on first insert.
+On startup `BedrockConsumerRegistry` registers both handlers into `bedrock_subscription` (insert-if-not-exists). All registered pairs share one multi-thread polling scheduler, while each pair keeps its independently sized worker pool. If a row already exists, the DB values for `max_retry` and `status` are kept as-is; `@BedrockConsumer(maxRetry=N)` only takes effect on first insert.
 
 ## 5. Send a message
 

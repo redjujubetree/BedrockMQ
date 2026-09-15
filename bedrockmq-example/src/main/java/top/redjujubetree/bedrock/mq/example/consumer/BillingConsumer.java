@@ -6,7 +6,7 @@ import org.slf4j.LoggerFactory;
 import top.redjujubetree.bedrock.mq.annotation.BedrockConsumer;
 import top.redjujubetree.bedrock.mq.entity.BedrockMessage;
 import top.redjujubetree.bedrock.mq.example.dto.OrderEvent;
-import top.redjujubetree.bedrock.mq.consumer.MessageConsumer;
+import top.redjujubetree.bedrock.mq.consumer.BedrockMessageConsumer;
 
 /**
  * Pub-sub fan-out: same "order" topic, independent consumer "billing".
@@ -14,7 +14,7 @@ import top.redjujubetree.bedrock.mq.consumer.MessageConsumer;
  * maxRetry=5 overrides the default of 3.
  */
 @BedrockConsumer(value = "billing", topic = "order", maxRetry = 5)
-public class BillingConsumer implements MessageConsumer {
+public class BillingConsumer implements BedrockMessageConsumer {
 
     private static final Logger log = LoggerFactory.getLogger(BillingConsumer.class);
 

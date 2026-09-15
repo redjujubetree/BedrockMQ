@@ -20,8 +20,8 @@ public class PerTypePollingManager implements InitializingBean, DisposableBean {
     private static final int POLLING_SCHEDULER_THREADS = 2;
 
     private final BedrockConsumeRecordMapper consumeRecordMapper;
-    private final MessageProcessor processor;
-    private final ConsumerRegistry registry;
+    private final BedrockMessageProcessor processor;
+    private final BedrockConsumerRegistry registry;
     private final BedrockMqProperties properties;
 
     private final List<ThreadPoolExecutor> workerPools = new ArrayList<>();
@@ -29,8 +29,8 @@ public class PerTypePollingManager implements InitializingBean, DisposableBean {
     private ScheduledExecutorService scheduler;
 
     public PerTypePollingManager(BedrockConsumeRecordMapper consumeRecordMapper,
-                                 MessageProcessor processor,
-                                 ConsumerRegistry registry,
+                                 BedrockMessageProcessor processor,
+                                 BedrockConsumerRegistry registry,
                                  BedrockMqProperties properties) {
         this.consumeRecordMapper = consumeRecordMapper;
         this.processor = processor;
@@ -47,7 +47,7 @@ public class PerTypePollingManager implements InitializingBean, DisposableBean {
 
         scheduler = createPollingScheduler();
         for (String registryKey : registeredKeys) {
-            String[] parts = ConsumerRegistry.splitKey(registryKey);
+            String[] parts = BedrockConsumerRegistry.splitKey(registryKey);
             String topic = parts[0];
             String consumerName = parts[1];
             int concurrency = properties.getConcurrencyFor(registryKey);

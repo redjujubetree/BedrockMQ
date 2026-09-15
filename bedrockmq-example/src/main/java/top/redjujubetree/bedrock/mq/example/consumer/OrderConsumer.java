@@ -6,11 +6,11 @@ import org.slf4j.LoggerFactory;
 import top.redjujubetree.bedrock.mq.annotation.BedrockConsumer;
 import top.redjujubetree.bedrock.mq.entity.BedrockMessage;
 import top.redjujubetree.bedrock.mq.example.dto.OrderEvent;
-import top.redjujubetree.bedrock.mq.consumer.MessageConsumer;
+import top.redjujubetree.bedrock.mq.consumer.BedrockMessageConsumer;
 
 /** Handles core order fulfillment logic. */
 @BedrockConsumer(value = "order", topic = "order")
-public class OrderConsumer implements MessageConsumer {
+public class OrderConsumer implements BedrockMessageConsumer {
 
     private static final Logger log = LoggerFactory.getLogger(OrderConsumer.class);
 

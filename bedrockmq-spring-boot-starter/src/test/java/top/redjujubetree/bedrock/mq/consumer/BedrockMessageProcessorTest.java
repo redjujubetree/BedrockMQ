@@ -20,15 +20,15 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
-class MessageProcessorTest {
+class BedrockMessageProcessorTest {
 
     @Mock BedrockConsumeRecordMapper consumeRecordMapper;
     @Mock
-    ConsumerRegistry registry;
+    BedrockConsumerRegistry registry;
     @Mock BedrockMqProperties properties;
     @Mock
-    MessageConsumer consumer;
-    MessageProcessor processor;
+    BedrockMessageConsumer consumer;
+    BedrockMessageProcessor processor;
 
     @BeforeEach
     void setUp() {
@@ -36,7 +36,7 @@ class MessageProcessorTest {
         lenient().when(properties.getProcessingTimeoutMinutes()).thenReturn(15);
         lenient().when(consumeRecordMapper.markCompleted(anyLong(), anyString(), any())).thenReturn(1);
         lenient().when(consumeRecordMapper.markFailed(anyLong(), anyString(), anyString(), any())).thenReturn(1);
-        processor = new MessageProcessor(consumeRecordMapper, registry, properties);
+        processor = new BedrockMessageProcessor(consumeRecordMapper, registry, properties);
     }
 
     private BedrockConsumeRecord buildRecord(int retryCount, int maxRetry) {
@@ -106,7 +106,7 @@ class MessageProcessorTest {
     void constructor_rejectsNonPositiveProcessingTimeout() {
         when(properties.getProcessingTimeoutMinutes()).thenReturn(0);
 
-        assertThatThrownBy(() -> new MessageProcessor(consumeRecordMapper, registry, properties))
+        assertThatThrownBy(() -> new BedrockMessageProcessor(consumeRecordMapper, registry, properties))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("processing-timeout-minutes");
     }
