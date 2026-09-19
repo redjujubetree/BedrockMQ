@@ -27,6 +27,21 @@
         </license>
     </licenses>
 
+    <developers>
+        <developer>
+            <id>kenny</id>
+            <name>Kenny</name>
+            <email>redjujubetree@gmail.com</email>
+        </developer>
+    </developers>
+
+    <scm>
+        <connection>scm:git:https://github.com/redjujubetree/BedrockMQ.git</connection>
+        <developerConnection>scm:git:ssh://git@github.com/redjujubetree/BedrockMQ.git</developerConnection>
+        <url>https://github.com/redjujubetree/BedrockMQ</url>
+        <tag>HEAD</tag>
+    </scm>
+
     <modules>
         <module>bedrockmq-spring-boot-starter</module>
         <module>bedrockmq-admin-frontend</module>
@@ -40,6 +55,7 @@
         <java.version>1.8</java.version>
         <maven.compiler.source>1.8</maven.compiler.source>
         <maven.compiler.target>1.8</maven.compiler.target>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <mysql-connector.version>8.0.33</mysql-connector.version>
         <sqlite-jdbc.version>3.45.3.0</sqlite-jdbc.version>
     </properties>
@@ -119,4 +135,78 @@
             </plugin>
         </plugins>
     </build>
+
+    <profiles>
+        <profile>
+            <id>release</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-source-plugin</artifactId>
+                        <version>3.3.1</version>
+                        <executions>
+                            <execution>
+                                <id>attach-sources</id>
+                                <goals>
+                                    <goal>jar-no-fork</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-javadoc-plugin</artifactId>
+                        <version>3.11.2</version>
+                        <configuration>
+                            <doclint>none</doclint>
+                        </configuration>
+                        <executions>
+                            <execution>
+                                <id>attach-javadocs</id>
+                                <goals>
+                                    <goal>jar</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-gpg-plugin</artifactId>
+                        <version>3.2.8</version>
+                        <configuration>
+                            <bestPractices>true</bestPractices>
+                            <keyname>1DFED124E811541E2F4419EF1F6ED2EF25B79617</keyname>
+                        </configuration>
+                        <executions>
+                            <execution>
+                                <id>sign-artifacts</id>
+                                <phase>verify</phase>
+                                <goals>
+                                    <goal>sign</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.sonatype.central</groupId>
+                        <artifactId>central-publishing-maven-plugin</artifactId>
+                        <version>0.11.0</version>
+                        <extensions>true</extensions>
+                        <configuration>
+                            <publishingServerId>central</publishingServerId>
+                            <autoPublish>true</autoPublish>
+                            <waitUntil>published</waitUntil>
+                            <excludeArtifacts>
+                                <excludeArtifact>bedrockmq-admin-frontend</excludeArtifact>
+                                <excludeArtifact>bedrockmq-admin</excludeArtifact>
+                                <excludeArtifact>bedrockmq-example</excludeArtifact>
+                                <excludeArtifact>bedrockmq-docs</excludeArtifact>
+                            </excludeArtifacts>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>
