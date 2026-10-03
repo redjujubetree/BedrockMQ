@@ -74,6 +74,8 @@ BedrockMQ 的目标不是替代 Kafka 或 RabbitMQ。
 </dependency>
 ```
 
+其他引入方式可到中央仓库查看 [BedrockMQ on Maven Central](https://central.sonatype.com/artifact/top.redjujubetree/bedrockmq-spring-boot-starter)
+
 ### 2. 初始化数据库
 
 MySQL：执行 `bedrockmq-spring-boot-starter/src/main/resources/schema-mysql.sql`。  
