@@ -2,6 +2,8 @@
 
 `bedrockmq-admin` is a standalone Spring Boot application for monitoring and operating a BedrockMQ deployment. It exposes a REST API to inspect consume records, retry failures, manage subscriptions, and send messages for testing.
 
+The admin app has no built-in authentication or authorization. Restrict access to trusted operators and do not expose it directly to the public internet.
+
 ## Setup
 
 ### 1. Choose a database profile
@@ -97,8 +99,10 @@ Content-Type: application/json
 Response:
 
 ```json
-{ "id": 42 }
+{ "id": "42" }
 ```
+
+Long IDs are serialized as JSON strings to preserve their precision in JavaScript.
 
 #### Retry failed record
 

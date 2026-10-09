@@ -70,11 +70,13 @@ BedrockMQ 的目标不是替代 Kafka 或 RabbitMQ。
 <dependency>
     <groupId>top.redjujubetree</groupId>
     <artifactId>bedrockmq-spring-boot-starter</artifactId>
-    <version>${latestVersion}</version>
+    <version>0.0.7</version>
 </dependency>
 ```
 
 其他引入方式可到中央仓库查看 [BedrockMQ on Maven Central](https://central.sonatype.com/artifact/top.redjujubetree/bedrockmq-spring-boot-starter)
+
+使用 SQLite 时，宿主项目还需添加 `org.xerial:sqlite-jdbc` 驱动依赖；完整配置见[快速开始](bedrockmq-docs/docs/quickstart.md)。
 
 ### 2. 初始化数据库
 
@@ -149,6 +151,8 @@ producer.sendBatch(Arrays.asList(
 
 ## 消费状态机
 
+BedrockMQ 提供至少一次投递语义。处理期限到达后可能发起新尝试，而旧处理器仍在运行；业务处理器必须幂等。
+
 ```
 PENDING(0) ──抢占成功──→ PROCESSING(1) ──业务成功──→ COMPLETED(2)
     ↑                          │
@@ -184,6 +188,8 @@ spring.datasource.driver-class-name=org.sqlite.JDBC
 ```
 
 管理后台需指向与生产者/消费者相同的数据源。功能：消息列表与详情、手动发送、重试 / 取消、调整重试次数、订阅管理（启用 / 停用 / 编辑最大重试次数）、统计概览。
+
+管理后台没有内置鉴权，仅应允许可信操作人员访问，不要直接暴露到公网。
 
 详见 [bedrockmq-docs/docs/admin.md](bedrockmq-docs/docs/admin.md)。
 

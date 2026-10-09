@@ -18,13 +18,32 @@ Run the DDL against your database instance. This creates three tables: `bedrock_
 <dependency>
     <groupId>top.redjujubetree</groupId>
     <artifactId>bedrockmq-spring-boot-starter</artifactId>
-    <version>${latestVersion}</version>
+    <version>0.0.7</version>
 </dependency>
 ```
+
+For SQLite, add the JDBC driver to the host application (the starter does not include database drivers):
+
+```xml
+<dependency>
+    <groupId>org.xerial</groupId>
+    <artifactId>sqlite-jdbc</artifactId>
+    <version>3.45.3.0</version>
+</dependency>
+```
+
+For MySQL, ensure the host application has a MySQL JDBC driver. These versions match the current repository POM; check Maven Central when upgrading.
 
 ## 3. Configure application.properties
 
 If your project already has a `spring.datasource` configured, **no additional configuration is needed** — BedrockMQ is enabled by default once the starter is imported.
+
+For a new SQLite datasource, for example:
+
+```properties
+spring.datasource.url=jdbc:sqlite:/path/to/bedrockmq.db
+spring.datasource.driver-class-name=org.sqlite.JDBC
+```
 
 To disable it explicitly:
 
@@ -96,3 +115,5 @@ producer.sendBatch(Arrays.asList(
 ```
 
 The producer queries `bedrock_subscription` at send time and creates one `bedrock_consume_record` per enabled subscriber. It has no dependency on any consumer JVM being alive.
+
+Delivery is at least once. A handler may still be running when its fixed processing deadline expires and another attempt begins, so handlers must be idempotent.

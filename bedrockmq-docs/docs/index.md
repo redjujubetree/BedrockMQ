@@ -16,7 +16,7 @@ Lightweight message queue backed by an existing database (MySQL or SQLite). Elim
 ```
 Producer                       Consumer JVM
 ────────                       ────────────
-send(topic, payload)           @BedrockConsumer("order")
+send(topic, source, payload)   @BedrockConsumer(value="order", topic="order")
   │                            registered in bedrock_subscription
   ├─ INSERT bedrock_message    on startup
   │

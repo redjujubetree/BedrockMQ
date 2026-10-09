@@ -47,7 +47,7 @@ Per-consumer consumption state. One row is created for each enabled subscriber a
 | Column | Type | Notes |
 |--------|------|-------|
 | id | BIGINT PK | Auto-increment |
-| message_id | BIGINT | FK to `bedrock_message.id` |
+| message_id | BIGINT | References `bedrock_message.id`|
 | topic | VARCHAR(64) | Denormalized from the message for index efficiency |
 | consumer | VARCHAR(64) | Consumer name |
 | status | TINYINT | State machine: `0`=PENDING → `1`=PROCESSING → `2`=COMPLETED / `3`=FAILED |
@@ -125,3 +125,5 @@ UPDATE bedrock_consume_record
 ```
 
 This design performs no heartbeat updates, but it requires choosing a timeout long enough for legitimate handlers. A worker crash may remain in PROCESSING until the fixed deadline, while a handler that runs beyond the deadline may overlap with a retry. Token-fenced final updates keep the older execution from overwriting the newer state. Existing databases must run `migration-processing-expires-mysql.sql` or `migration-processing-expires-sqlite.sql` once before deploying this version. PROCESSING rows without a deadline are not recovered automatically.
+
+BedrockMQ provides at-least-once delivery. A retry can overlap with a handler that outlives its deadline, so business handlers must be idempotent even though a stale handler cannot overwrite a newer consume-record state.
