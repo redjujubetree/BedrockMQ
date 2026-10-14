@@ -26,33 +26,33 @@ class TimeoutRecoveryTaskTest {
 
     @Test
     void recover_callsMapperWithCurrentTime() {
-        when(consumeRecordMapper.recoverTimedOutRecords(any())).thenReturn(0);
+        when(consumeRecordMapper.recoverTimeoutRecords(any())).thenReturn(0);
 
         recoveryTask.recover();
 
         org.mockito.ArgumentCaptor<LocalDateTime> nowCaptor =
                 org.mockito.ArgumentCaptor.forClass(LocalDateTime.class);
-        verify(consumeRecordMapper).recoverTimedOutRecords(nowCaptor.capture());
+        verify(consumeRecordMapper).recoverTimeoutRecords(nowCaptor.capture());
     }
 
     @Test
     void recover_completesNormallyWhenNoRecordsAreRecovered() {
-        when(consumeRecordMapper.recoverTimedOutRecords(any())).thenReturn(0);
+        when(consumeRecordMapper.recoverTimeoutRecords(any())).thenReturn(0);
 
         assertDoesNotThrow(() -> recoveryTask.recover());
     }
 
     @Test
     void recover_completesNormallyWhenMultipleRecordsAreRecovered() {
-        when(consumeRecordMapper.recoverTimedOutRecords(any())).thenReturn(3);
+        when(consumeRecordMapper.recoverTimeoutRecords(any())).thenReturn(3);
 
         assertDoesNotThrow(() -> recoveryTask.recover());
-        verify(consumeRecordMapper, times(1)).recoverTimedOutRecords(any());
+        verify(consumeRecordMapper, times(1)).recoverTimeoutRecords(any());
     }
 
     @Test
     void recoverSafely_swallowsDatabaseFailureSoSchedulingCanContinue() {
-        when(consumeRecordMapper.recoverTimedOutRecords(any()))
+        when(consumeRecordMapper.recoverTimeoutRecords(any()))
                 .thenThrow(new RuntimeException("database unavailable"));
 
         assertDoesNotThrow(() -> recoveryTask.recoverSafely());

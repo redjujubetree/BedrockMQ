@@ -50,7 +50,7 @@ class BedrockConsumeRecordMapperProcessingDeadlineTest {
         assertThat(mapper.tryAcquire(id, "node-a", "token-a", firstStart, firstDeadline))
                 .isEqualTo(1);
 
-        assertThat(mapper.recoverTimedOutRecords(firstDeadline)).isEqualTo(1);
+        assertThat(mapper.recoverTimeoutRecords(firstDeadline)).isEqualTo(1);
         assertThat(mapper.tryAcquire(id, "node-b", "token-b", firstDeadline,
                 firstDeadline.plusMinutes(30))).isEqualTo(1);
 
@@ -72,12 +72,12 @@ class BedrockConsumeRecordMapperProcessingDeadlineTest {
         LocalDateTime deadline = start.plusMinutes(30);
         assertThat(mapper.tryAcquire(id, "node-a", "token-a", start, deadline)).isEqualTo(1);
 
-        assertThat(mapper.recoverTimedOutRecords(deadline.minusNanos(1))).isZero();
+        assertThat(mapper.recoverTimeoutRecords(deadline.minusNanos(1))).isZero();
         BedrockConsumeRecord processing = mapper.selectById(id);
         assertThat(processing.getStatus()).isEqualTo(MessageStatus.PROCESSING);
         assertThat(processing.getProcessingExpiresAt()).isEqualTo(deadline);
 
-        assertThat(mapper.recoverTimedOutRecords(deadline)).isEqualTo(1);
+        assertThat(mapper.recoverTimeoutRecords(deadline)).isEqualTo(1);
         BedrockConsumeRecord recovered = mapper.selectById(id);
         assertThat(recovered.getStatus()).isEqualTo(MessageStatus.PENDING);
         assertThat(recovered.getProcessingExpiresAt()).isNull();
@@ -129,7 +129,7 @@ class BedrockConsumeRecordMapperProcessingDeadlineTest {
         Long id = insertRecord(MessageStatus.PROCESSING, oldUpdatedAt);
         LocalDateTime now = LocalDateTime.of(2026, 7, 13, 10, 0);
 
-        assertThat(mapper.recoverTimedOutRecords(now)).isZero();
+        assertThat(mapper.recoverTimeoutRecords(now)).isZero();
 
         BedrockConsumeRecord saved = mapper.selectById(id);
         assertThat(saved.getStatus()).isEqualTo(MessageStatus.PROCESSING);

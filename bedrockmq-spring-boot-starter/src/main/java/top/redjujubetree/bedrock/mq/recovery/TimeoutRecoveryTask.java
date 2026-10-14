@@ -50,7 +50,7 @@ public class TimeoutRecoveryTask implements InitializingBean, DisposableBean {
 
     void recover() {
         LocalDateTime now = LocalDateTime.now();
-        int count = consumeRecordMapper.recoverTimedOutRecords(now);
+        int count = consumeRecordMapper.recoverTimeoutRecords(now);
         if (count > 0) {
             log.warn("Recovered {} records that exceeded their processing deadline", count);
         }

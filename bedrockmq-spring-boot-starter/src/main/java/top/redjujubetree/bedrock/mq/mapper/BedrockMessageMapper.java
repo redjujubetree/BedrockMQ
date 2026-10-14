@@ -2,8 +2,6 @@ package top.redjujubetree.bedrock.mq.mapper;
 
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.RowMapper;
-import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
-import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.jdbc.core.namedparam.SqlParameterSourceUtils;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
@@ -30,13 +28,13 @@ public class BedrockMessageMapper {
 
     public void insert(BedrockMessage msg) {
         KeyHolder keyHolder = new GeneratedKeyHolder();
-        jdbc.update(INSERT_SQL, new BeanPropertySqlParameterSource(msg), keyHolder, new String[]{"id"});
+        jdbc.update(INSERT_SQL, JdbcDateTimeParameterSource.bean(msg), keyHolder, new String[]{"id"});
         msg.setId(keyHolder.getKey().longValue());
     }
 
     public BedrockMessage selectById(Long id) {
         String sql = "SELECT * FROM bedrock_message WHERE id = :id";
-        List<BedrockMessage> results = jdbc.query(sql, new MapSqlParameterSource("id", id), ROW_MAPPER);
+        List<BedrockMessage> results = jdbc.query(sql, new JdbcDateTimeParameterSource("id", id), ROW_MAPPER);
         return results.isEmpty() ? null : results.get(0);
     }
 

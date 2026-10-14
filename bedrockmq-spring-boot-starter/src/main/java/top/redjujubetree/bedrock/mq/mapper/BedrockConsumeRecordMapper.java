@@ -2,10 +2,8 @@ package top.redjujubetree.bedrock.mq.mapper;
 
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.RowMapper;
-import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
-import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
-import org.springframework.jdbc.core.namedparam.SqlParameterSourceUtils;
+import org.springframework.jdbc.core.namedparam.SqlParameterSource;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.jdbc.support.KeyHolder;
 import top.redjujubetree.bedrock.mq.constant.MessageStatus;
@@ -44,12 +42,16 @@ public class BedrockConsumeRecordMapper {
 
     public void insert(BedrockConsumeRecord record) {
         KeyHolder keyHolder = new GeneratedKeyHolder();
-        jdbc.update(INSERT_SQL, new BeanPropertySqlParameterSource(record), keyHolder, new String[]{"id"});
+        jdbc.update(INSERT_SQL, JdbcDateTimeParameterSource.bean(record), keyHolder, new String[]{"id"});
         record.setId(keyHolder.getKey().longValue());
     }
 
     public int insertBatch(List<BedrockConsumeRecord> records) {
-        int[] results = jdbc.batchUpdate(INSERT_SQL, SqlParameterSourceUtils.createBatch(records));
+        SqlParameterSource[] parameters = new SqlParameterSource[records.size()];
+        for (int i = 0; i < records.size(); i++) {
+            parameters[i] = JdbcDateTimeParameterSource.bean(records.get(i));
+        }
+        int[] results = jdbc.batchUpdate(INSERT_SQL, parameters);
         int total = 0;
         for (int r : results) total += r;
         return total;
@@ -62,7 +64,7 @@ public class BedrockConsumeRecordMapper {
                      "processing_started_at = :now, processing_expires_at = :processingExpiresAt, " +
                      "updated_at = :now " +
                      "WHERE id = :id AND status = " + MessageStatus.PENDING + " AND deleted = 0";
-        return jdbc.update(sql, new MapSqlParameterSource()
+        return jdbc.update(sql, new JdbcDateTimeParameterSource()
                 .addValue("id", id)
                 .addValue("nodeId", nodeId)
                 .addValue("processingToken", processingToken)
@@ -70,7 +72,7 @@ public class BedrockConsumeRecordMapper {
                 .addValue("processingExpiresAt", processingExpiresAt));
     }
 
-    public int recoverTimedOutRecords(LocalDateTime now) {
+    public int recoverTimeoutRecords(LocalDateTime now) {
         String sql = "UPDATE bedrock_consume_record " +
                      "SET status = CASE WHEN retry_count + 1 >= max_retry THEN " + MessageStatus.FAILED + " ELSE " + MessageStatus.PENDING + " END, " +
                      "    retry_count = retry_count + 1, node_id = NULL, processing_token = NULL, " +
@@ -78,7 +80,7 @@ public class BedrockConsumeRecordMapper {
                      "    error_msg = 'Timeout: processing deadline exceeded', updated_at = :now " +
                      "WHERE status = " + MessageStatus.PROCESSING + " AND deleted = 0 " +
                      "AND processing_expires_at <= :now";
-        return jdbc.update(sql, new MapSqlParameterSource("now", now));
+        return jdbc.update(sql, new JdbcDateTimeParameterSource("now", now));
     }
 
     public List<BedrockConsumeRecord> selectPending(String topic, String consumer, int limit) {
@@ -86,7 +88,7 @@ public class BedrockConsumeRecordMapper {
                      "WHERE cr.topic = :topic AND cr.consumer = :consumer " +
                      "AND cr.status = " + MessageStatus.PENDING + " AND cr.scheduled_at <= :now AND cr.deleted = 0 " +
                      "ORDER BY cr.scheduled_at ASC LIMIT :limit";
-        MapSqlParameterSource params = new MapSqlParameterSource()
+        JdbcDateTimeParameterSource params = new JdbcDateTimeParameterSource()
                 .addValue("topic", topic)
                 .addValue("consumer", consumer)
                 .addValue("now", LocalDateTime.now())
@@ -96,13 +98,13 @@ public class BedrockConsumeRecordMapper {
 
     public BedrockConsumeRecord selectByIdWithMessage(Long id) {
         String sql = "SELECT " + JOIN_COLUMNS + JOIN_FROM + "WHERE cr.id = :id AND cr.deleted = 0";
-        List<BedrockConsumeRecord> results = jdbc.query(sql, new MapSqlParameterSource("id", id), ROW_MAPPER);
+        List<BedrockConsumeRecord> results = jdbc.query(sql, new JdbcDateTimeParameterSource("id", id), ROW_MAPPER);
         return results.isEmpty() ? null : results.get(0);
     }
 
     public BedrockConsumeRecord selectById(Long id) {
         String sql = "SELECT * FROM bedrock_consume_record WHERE id = :id";
-        List<BedrockConsumeRecord> results = jdbc.query(sql, new MapSqlParameterSource("id", id), ROW_MAPPER);
+        List<BedrockConsumeRecord> results = jdbc.query(sql, new JdbcDateTimeParameterSource("id", id), ROW_MAPPER);
         return results.isEmpty() ? null : results.get(0);
     }
 
@@ -113,7 +115,7 @@ public class BedrockConsumeRecordMapper {
                      "error_msg = NULL, updated_at = :updatedAt " +
                      "WHERE id = :id AND status = " + MessageStatus.PROCESSING +
                      " AND processing_token = :processingToken";
-        return jdbc.update(sql, new MapSqlParameterSource()
+        return jdbc.update(sql, new JdbcDateTimeParameterSource()
                 .addValue("id", id)
                 .addValue("processingToken", processingToken)
                 .addValue("updatedAt", updatedAt));
@@ -129,7 +131,7 @@ public class BedrockConsumeRecordMapper {
                      "error_msg = :errorMsg, updated_at = :updatedAt " +
                      "WHERE id = :id AND status = " + MessageStatus.PROCESSING +
                      " AND processing_token = :processingToken";
-        MapSqlParameterSource params = new MapSqlParameterSource()
+        JdbcDateTimeParameterSource params = new JdbcDateTimeParameterSource()
                 .addValue("id", id)
                 .addValue("processingToken", processingToken)
                 .addValue("errorMsg", errorMsg)
@@ -144,7 +146,7 @@ public class BedrockConsumeRecordMapper {
                      "processing_started_at = NULL, processing_expires_at = NULL, " +
                      "error_msg = NULL, updated_at = :updatedAt " +
                      "WHERE id = :id AND status = " + MessageStatus.FAILED;
-        return jdbc.update(sql, new MapSqlParameterSource().addValue("id", id).addValue("updatedAt", updatedAt));
+        return jdbc.update(sql, new JdbcDateTimeParameterSource().addValue("id", id).addValue("updatedAt", updatedAt));
     }
 
     /** Batch-resets FAILED records back to PENDING; returns number of rows updated. */
@@ -154,7 +156,7 @@ public class BedrockConsumeRecordMapper {
                      "processing_started_at = NULL, processing_expires_at = NULL, " +
                      "error_msg = NULL, updated_at = :updatedAt " +
                      "WHERE id IN (:ids) AND status = " + MessageStatus.FAILED;
-        return jdbc.update(sql, new MapSqlParameterSource().addValue("ids", ids).addValue("updatedAt", updatedAt));
+        return jdbc.update(sql, new JdbcDateTimeParameterSource().addValue("ids", ids).addValue("updatedAt", updatedAt));
     }
 
     /** Cancels a PENDING record by moving it to FAILED; returns 1 if updated, 0 if not found or not PENDING. */
@@ -162,12 +164,12 @@ public class BedrockConsumeRecordMapper {
         String sql = "UPDATE bedrock_consume_record " +
                      "SET status = " + MessageStatus.FAILED + ", error_msg = 'Cancelled via admin API', updated_at = :updatedAt " +
                      "WHERE id = :id AND status = " + MessageStatus.PENDING;
-        return jdbc.update(sql, new MapSqlParameterSource().addValue("id", id).addValue("updatedAt", updatedAt));
+        return jdbc.update(sql, new JdbcDateTimeParameterSource().addValue("id", id).addValue("updatedAt", updatedAt));
     }
 
     public int updateMaxRetry(Long id, int maxRetry) {
         String sql = "UPDATE bedrock_consume_record SET max_retry = :maxRetry, updated_at = :now WHERE id = :id";
-        return jdbc.update(sql, new MapSqlParameterSource()
+        return jdbc.update(sql, new JdbcDateTimeParameterSource()
                 .addValue("id", id)
                 .addValue("maxRetry", maxRetry)
                 .addValue("now", LocalDateTime.now()));
@@ -175,7 +177,7 @@ public class BedrockConsumeRecordMapper {
 
     public int batchUpdateMaxRetry(List<Long> ids, int maxRetry) {
         String sql = "UPDATE bedrock_consume_record SET max_retry = :maxRetry, updated_at = :now WHERE id IN (:ids)";
-        return jdbc.update(sql, new MapSqlParameterSource()
+        return jdbc.update(sql, new JdbcDateTimeParameterSource()
                 .addValue("ids", ids)
                 .addValue("maxRetry", maxRetry)
                 .addValue("now", LocalDateTime.now()));
@@ -183,7 +185,7 @@ public class BedrockConsumeRecordMapper {
 
     public void deleteById(Long id) {
         String sql = "UPDATE bedrock_consume_record SET deleted = 1, updated_at = :now WHERE id = :id";
-        jdbc.update(sql, new MapSqlParameterSource().addValue("id", id).addValue("now", LocalDateTime.now()));
+        jdbc.update(sql, new JdbcDateTimeParameterSource().addValue("id", id).addValue("now", LocalDateTime.now()));
     }
 
     public void deleteAll() {
@@ -198,7 +200,7 @@ public class BedrockConsumeRecordMapper {
                 "cr.retry_count, cr.max_retry, cr.error_msg, cr.scheduled_at, cr.created_at, cr.updated_at, " +
                 "m.message_source " +
                 "FROM bedrock_consume_record cr JOIN bedrock_message m ON m.id = cr.message_id");
-        MapSqlParameterSource params = new MapSqlParameterSource();
+        JdbcDateTimeParameterSource params = new JdbcDateTimeParameterSource();
         List<String> conditions = new ArrayList<>();
         conditions.add("cr.deleted = 0");
         if (topic != null && !topic.isEmpty()) {
@@ -221,7 +223,7 @@ public class BedrockConsumeRecordMapper {
 
     public long countMessages(String topic, String consumer, Integer status) {
         StringBuilder sql = new StringBuilder("SELECT COUNT(*) FROM bedrock_consume_record");
-        MapSqlParameterSource params = new MapSqlParameterSource();
+        JdbcDateTimeParameterSource params = new JdbcDateTimeParameterSource();
         List<String> conditions = new ArrayList<>();
         conditions.add("deleted = 0");
         if (topic != null && !topic.isEmpty()) {
