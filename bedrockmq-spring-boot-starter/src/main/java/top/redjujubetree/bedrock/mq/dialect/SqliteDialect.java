@@ -8,4 +8,12 @@ public class SqliteDialect implements SqlDialect {
                "VALUES (:topic, :consumer, :maxRetry, 1, :now, :now) " +
                "ON CONFLICT(topic, consumer) DO NOTHING";
     }
+
+    @Override
+    public String insertSubscriptionWithIdSql() {
+        return "INSERT INTO bedrock_subscription " +
+               "(id, topic, consumer, max_retry, status, created_at, updated_at) " +
+               "VALUES (:id, :topic, :consumer, :maxRetry, 1, :now, :now) " +
+               "ON CONFLICT(topic, consumer) DO NOTHING";
+    }
 }

@@ -93,6 +93,10 @@ Both `value` and `topic` are required. `BedrockConsumerRegistry` throws `Illegal
 
 ## Configuration
 
+### ID generation extension
+
+Implement `top.redjujubetree.bedrock.mq.id.BedrockIdGenerator` and expose exactly one Spring bean to use application-generated IDs. Its `Number nextId(Object entity)` method receives a `BedrockMessage`, `BedrockSubscription`, or `BedrockConsumeRecord` before insertion. The entity contains the values prepared for the insert; optional fields may be null. Without this bean, the database generates IDs as before. The starter converts the returned number to a Java `long`; the generator is responsible for returning a positive whole number that fits in a signed `long` and is unique across every writer sharing the database. Duplicate IDs fail at the database constraint.
+
 All properties are under the `bedrock.mq.*` prefix in `application.properties`.
 
 | Property | Default | Description |

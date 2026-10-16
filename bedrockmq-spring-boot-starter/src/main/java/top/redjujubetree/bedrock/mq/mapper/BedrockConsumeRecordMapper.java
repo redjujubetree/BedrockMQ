@@ -8,6 +8,7 @@ import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.jdbc.support.KeyHolder;
 import top.redjujubetree.bedrock.mq.constant.MessageStatus;
 import top.redjujubetree.bedrock.mq.entity.BedrockConsumeRecord;
+import top.redjujubetree.bedrock.mq.id.BedrockIdGenerator;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -23,6 +24,10 @@ public class BedrockConsumeRecordMapper {
             "INSERT INTO bedrock_consume_record " +
             "(message_id, topic, consumer, status, retry_count, max_retry, scheduled_at, deleted, created_at, updated_at) " +
             "VALUES (:messageId, :topic, :consumer, :status, :retryCount, :maxRetry, :scheduledAt, 0, :createdAt, :updatedAt)";
+    private static final String INSERT_WITH_ID_SQL =
+            "INSERT INTO bedrock_consume_record " +
+            "(id, message_id, topic, consumer, status, retry_count, max_retry, scheduled_at, deleted, created_at, updated_at) " +
+            "VALUES (:id, :messageId, :topic, :consumer, :status, :retryCount, :maxRetry, :scheduledAt, 0, :createdAt, :updatedAt)";
 
     private static final String JOIN_COLUMNS =
             "cr.id, cr.message_id, cr.topic, cr.consumer, cr.status, cr.node_id, cr.processing_token, " +
@@ -35,12 +40,23 @@ public class BedrockConsumeRecordMapper {
             " FROM bedrock_consume_record cr JOIN bedrock_message m ON m.id = cr.message_id ";
 
     private final NamedParameterJdbcTemplate jdbc;
+    private final BedrockIdGenerator idGenerator;
 
     public BedrockConsumeRecordMapper(NamedParameterJdbcTemplate jdbc) {
+        this(jdbc, null);
+    }
+
+    public BedrockConsumeRecordMapper(NamedParameterJdbcTemplate jdbc, BedrockIdGenerator idGenerator) {
         this.jdbc = jdbc;
+        this.idGenerator = idGenerator;
     }
 
     public void insert(BedrockConsumeRecord record) {
+        if (idGenerator != null) {
+            record.setId(idGenerator.nextId(record).longValue());
+            jdbc.update(INSERT_WITH_ID_SQL, JdbcDateTimeParameterSource.bean(record));
+            return;
+        }
         KeyHolder keyHolder = new GeneratedKeyHolder();
         jdbc.update(INSERT_SQL, JdbcDateTimeParameterSource.bean(record), keyHolder, new String[]{"id"});
         record.setId(keyHolder.getKey().longValue());
@@ -49,9 +65,12 @@ public class BedrockConsumeRecordMapper {
     public int insertBatch(List<BedrockConsumeRecord> records) {
         SqlParameterSource[] parameters = new SqlParameterSource[records.size()];
         for (int i = 0; i < records.size(); i++) {
+            if (idGenerator != null) {
+                records.get(i).setId(idGenerator.nextId(records.get(i)).longValue());
+            }
             parameters[i] = JdbcDateTimeParameterSource.bean(records.get(i));
         }
-        int[] results = jdbc.batchUpdate(INSERT_SQL, parameters);
+        int[] results = jdbc.batchUpdate(idGenerator == null ? INSERT_SQL : INSERT_WITH_ID_SQL, parameters);
         int total = 0;
         for (int r : results) total += r;
         return total;

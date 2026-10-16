@@ -116,4 +116,18 @@ producer.sendBatch(Arrays.asList(
 
 The producer queries `bedrock_subscription` at send time and creates one `bedrock_consume_record` per enabled subscriber. It has no dependency on any consumer JVM being alive.
 
+## Optional custom IDs
+
+By default, all three tables use database-generated IDs. To supply IDs in the application, register one `BedrockIdGenerator` bean:
+
+```java
+@Bean
+public BedrockIdGenerator bedrockIdGenerator() {
+    AtomicLong sequence = new AtomicLong(1000L); // example only; use a distributed generator in a cluster
+    return entity -> sequence.incrementAndGet();
+}
+```
+
+The `entity` argument is a `BedrockMessage`, `BedrockSubscription`, or `BedrockConsumeRecord` containing the values prepared for insertion; optional fields may be null. IDs must be positive, unique across all writers for each table, and fit in a signed Java `long`. The starter then supplies IDs explicitly; no schema change is required for MySQL or SQLite. All writers sharing a database must use a compatible strategy. Before switching an existing database, ensure new IDs cannot collide with historical IDs, and avoid overlapping ID ranges during rolling deployment. The example counter is suitable only for a single process and does not survive restarts.
+
 Delivery is at least once. A handler may still be running when its fixed processing deadline expires and another attempt begins, so handlers must be idempotent.

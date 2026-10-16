@@ -85,6 +85,8 @@ SQLite：执行 `bedrockmq-spring-boot-starter/src/main/resources/schema-sqlite.
 
 已有数据库升级到固定处理期限版本时，需先执行一次对应的 `migration-processing-expires-mysql.sql` 或 `migration-processing-expires-sqlite.sql`。
 
+默认使用数据库自增主键。需要应用生成 ID 时，可提供一个 `BedrockIdGenerator` Bean；示例和切换注意事项见[快速开始](bedrockmq-docs/docs/quickstart.md)。
+
 ### 3. 关闭模块（可选）
 
 引入 starter 后默认启用，不需要时显式禁用：

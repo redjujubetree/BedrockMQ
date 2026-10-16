@@ -9,10 +9,12 @@ import top.redjujubetree.bedrock.mq.dialect.SqliteDialect;
 import top.redjujubetree.bedrock.mq.mapper.BedrockConsumeRecordMapper;
 import top.redjujubetree.bedrock.mq.mapper.BedrockMessageMapper;
 import top.redjujubetree.bedrock.mq.mapper.BedrockSubscriptionMapper;
+import top.redjujubetree.bedrock.mq.id.BedrockIdGenerator;
 import top.redjujubetree.bedrock.mq.producer.MessageProducer;
 import top.redjujubetree.bedrock.mq.recovery.TimeoutRecoveryTask;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
@@ -35,13 +37,15 @@ public class BedrockAutoConfiguration {
     private static final Logger log = LoggerFactory.getLogger(BedrockAutoConfiguration.class);
 
     @Bean
-    public BedrockMessageMapper bedrockMessageMapper(NamedParameterJdbcTemplate jdbc) {
-        return new BedrockMessageMapper(jdbc);
+    public BedrockMessageMapper bedrockMessageMapper(NamedParameterJdbcTemplate jdbc,
+                                                     ObjectProvider<BedrockIdGenerator> idGenerator) {
+        return new BedrockMessageMapper(jdbc, idGenerator.getIfAvailable());
     }
 
     @Bean
-    public BedrockConsumeRecordMapper bedrockConsumeRecordMapper(NamedParameterJdbcTemplate jdbc) {
-        return new BedrockConsumeRecordMapper(jdbc);
+    public BedrockConsumeRecordMapper bedrockConsumeRecordMapper(NamedParameterJdbcTemplate jdbc,
+                                                                 ObjectProvider<BedrockIdGenerator> idGenerator) {
+        return new BedrockConsumeRecordMapper(jdbc, idGenerator.getIfAvailable());
     }
 
     @Bean
@@ -67,8 +71,9 @@ public class BedrockAutoConfiguration {
 
     @Bean
     public BedrockSubscriptionMapper bedrockSubscriptionMapper(
-            NamedParameterJdbcTemplate jdbc, SqlDialect sqlDialect) {
-        return new BedrockSubscriptionMapper(jdbc, sqlDialect);
+            NamedParameterJdbcTemplate jdbc, SqlDialect sqlDialect,
+            ObjectProvider<BedrockIdGenerator> idGenerator) {
+        return new BedrockSubscriptionMapper(jdbc, sqlDialect, idGenerator.getIfAvailable());
     }
 
     @Bean

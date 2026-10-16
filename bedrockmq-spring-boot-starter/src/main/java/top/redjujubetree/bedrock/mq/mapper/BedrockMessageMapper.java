@@ -7,6 +7,7 @@ import org.springframework.jdbc.core.namedparam.SqlParameterSourceUtils;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.jdbc.support.KeyHolder;
 import top.redjujubetree.bedrock.mq.entity.BedrockMessage;
+import top.redjujubetree.bedrock.mq.id.BedrockIdGenerator;
 
 import java.util.List;
 import java.util.Map;
@@ -19,14 +20,28 @@ public class BedrockMessageMapper {
     private static final String INSERT_SQL =
             "INSERT INTO bedrock_message (topic, message_source, payload, created_at, updated_at) " +
             "VALUES (:topic, :messageSource, :payload, :createdAt, :updatedAt)";
+    private static final String INSERT_WITH_ID_SQL =
+            "INSERT INTO bedrock_message (id, topic, message_source, payload, created_at, updated_at) " +
+            "VALUES (:id, :topic, :messageSource, :payload, :createdAt, :updatedAt)";
 
     private final NamedParameterJdbcTemplate jdbc;
+    private final BedrockIdGenerator idGenerator;
 
     public BedrockMessageMapper(NamedParameterJdbcTemplate jdbc) {
+        this(jdbc, null);
+    }
+
+    public BedrockMessageMapper(NamedParameterJdbcTemplate jdbc, BedrockIdGenerator idGenerator) {
         this.jdbc = jdbc;
+        this.idGenerator = idGenerator;
     }
 
     public void insert(BedrockMessage msg) {
+        if (idGenerator != null) {
+            msg.setId(idGenerator.nextId(msg).longValue());
+            jdbc.update(INSERT_WITH_ID_SQL, JdbcDateTimeParameterSource.bean(msg));
+            return;
+        }
         KeyHolder keyHolder = new GeneratedKeyHolder();
         jdbc.update(INSERT_SQL, JdbcDateTimeParameterSource.bean(msg), keyHolder, new String[]{"id"});
         msg.setId(keyHolder.getKey().longValue());
