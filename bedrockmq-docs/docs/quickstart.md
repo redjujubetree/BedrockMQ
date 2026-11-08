@@ -18,7 +18,7 @@ Run the DDL against your database instance. This creates three tables: `bedrock_
 <dependency>
     <groupId>top.redjujubetree</groupId>
     <artifactId>bedrockmq-spring-boot-starter</artifactId>
-    <version>0.0.7</version>
+    <version>0.1.0</version>
 </dependency>
 ```
 
@@ -92,6 +92,8 @@ public class BillingConsumer implements BedrockMessageConsumer { ... }
 ```
 
 On startup `BedrockConsumerRegistry` registers both handlers into `bedrock_subscription` (insert-if-not-exists). All registered pairs share one multi-thread polling scheduler, while each pair keeps its independently sized worker pool. If a row already exists, the DB values for `max_retry` and `status` are kept as-is; `@BedrockConsumer(maxRetry=N)` only takes effect on first insert.
+
+For handlers supplied by another application at runtime, inject `BedrockConsumerRegistry` and call `registerConsumer("order", "external-app", 5, message -> { /* handle */ });`. This creates the subscription if needed and starts polling immediately, including when there were no annotated consumers at startup. Register before publishing messages that should reach this consumer; existing messages are not backfilled. Existing subscription settings remain in the database.
 
 ## 5. Send a message
 

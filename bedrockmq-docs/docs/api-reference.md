@@ -78,6 +78,18 @@ public class MyConsumer implements BedrockMessageConsumer {
 
 Both `value` and `topic` are required. `BedrockConsumerRegistry` throws `IllegalStateException` at startup if either is blank or if the same `(topic, consumer)` pair is registered more than once.
 
+### Runtime registration
+
+Applications can inject `BedrockConsumerRegistry` and register a handler after startup without an annotation:
+
+```java
+consumerRegistry.registerConsumer("orders", "external-app", 5, message -> {
+    // Process the message; throw to retry.
+});
+```
+
+`registerConsumer(String topic, String consumerName, int maxRetry, BedrockMessageConsumer consumer)` inserts a subscription if absent and starts polling immediately. `maxRetry` must be positive and applies only to a new subscription; an existing row keeps its `status` and `max_retry`. A duplicate local `(topic, consumer)` registration throws `IllegalStateException`. Blank names, a null handler, or a nonpositive retry count throw `IllegalArgumentException`. Register before publishing if new messages should fan out to this consumer; messages published before the subscription exists do not gain consume records retroactively.
+
 `BedrockMessage` fields available inside `consume()`:
 
 | Field | Source |

@@ -11,8 +11,10 @@ import org.springframework.core.annotation.AnnotationUtils;
 import javax.annotation.PostConstruct;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.BiConsumer;
 
 public class BedrockConsumerRegistry {
 
@@ -24,6 +26,7 @@ public class BedrockConsumerRegistry {
 
     /** Key: "topic:consumer" */
     private final Map<String, BedrockMessageConsumer> registry = new HashMap<>();
+    private BiConsumer<String, String> registrationListener;
 
     public BedrockConsumerRegistry(ApplicationContext applicationContext, BedrockSubscriptionMapper subscriptionMapper) {
         this.applicationContext = applicationContext;
@@ -52,26 +55,51 @@ public class BedrockConsumerRegistry {
             }
             int maxRetry = annotation.maxRetry();
 
-            String registryKey = key(topic, consumerName);
-            if (registry.containsKey(registryKey)) {
-                throw new IllegalStateException(
-                        "Duplicate @BedrockConsumer registration for topic=" + topic
-                                + " consumer=" + consumerName);
-            }
-            registry.put(registryKey, (BedrockMessageConsumer) bean);
-            subscriptionMapper.upsert(topic, consumerName, maxRetry);
+            registerConsumer(topic, consumerName, maxRetry, (BedrockMessageConsumer) bean);
             log.info("Registered consumer: topic={} consumer={} class={}", topic, consumerName,
                     AopUtils.getTargetClass(bean).getSimpleName());
         }
     }
 
-    public BedrockMessageConsumer getConsumer(String topic, String consumerName) {
+    /** Registers a handler at runtime and starts polling when the polling manager is active. */
+    public synchronized void registerConsumer(String topic, String consumerName, int maxRetry,
+                                              BedrockMessageConsumer consumer) {
+        if (topic == null || topic.trim().isEmpty() || consumerName == null
+                || consumerName.trim().isEmpty()) {
+            throw new IllegalArgumentException("topic and consumer name must not be blank");
+        }
+        if (consumer == null || maxRetry < 1) {
+            throw new IllegalArgumentException("consumer must be non-null and maxRetry must be positive");
+        }
+        String registryKey = key(topic, consumerName);
+        if (registry.containsKey(registryKey)) {
+            throw new IllegalStateException("Duplicate consumer registration for topic=" + topic
+                    + " consumer=" + consumerName);
+        }
+        subscriptionMapper.upsert(topic, consumerName, maxRetry);
+        registry.put(registryKey, consumer);
+        if (registrationListener != null) {
+            try {
+                registrationListener.accept(topic, consumerName);
+            } catch (RuntimeException e) {
+                registry.remove(registryKey);
+                throw e;
+            }
+        }
+    }
+
+    synchronized Set<String> setRegistrationListener(BiConsumer<String, String> listener) {
+        registrationListener = listener;
+        return new HashSet<>(registry.keySet());
+    }
+
+    public synchronized BedrockMessageConsumer getConsumer(String topic, String consumerName) {
         return registry.get(key(topic, consumerName));
     }
 
     /** Returns all registered (topic, consumer) keys as "topic:consumer" strings. */
-    public Set<String> getRegisteredKeys() {
-        return Collections.unmodifiableSet(registry.keySet());
+    public synchronized Set<String> getRegisteredKeys() {
+        return Collections.unmodifiableSet(new HashSet<>(registry.keySet()));
     }
 
     public static String key(String topic, String consumerName) {

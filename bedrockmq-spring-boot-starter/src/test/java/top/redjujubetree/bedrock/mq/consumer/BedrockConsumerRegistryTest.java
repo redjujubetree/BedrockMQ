@@ -12,6 +12,7 @@ import org.springframework.context.ApplicationContext;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -168,7 +169,7 @@ class BedrockConsumerRegistryTest {
 
         assertThatThrownBy(registry::init)
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("Duplicate @BedrockConsumer registration");
+                .hasMessageContaining("Duplicate consumer registration");
     }
 
     @Test
@@ -191,5 +192,40 @@ class BedrockConsumerRegistryTest {
 
         assertThat(registry.getConsumer("order", "order")).isNotNull();
         verify(subscriptionMapper).upsert("order", "order", 3);
+    }
+
+    @Test
+    void registerConsumer_persistsAndNotifiesPollingManager() {
+        BedrockConsumerRegistry registry = new BedrockConsumerRegistry(ctx, subscriptionMapper);
+        AtomicInteger notifications = new AtomicInteger();
+        registry.setRegistrationListener((topic, name) -> {
+            assertThat(topic).isEqualTo("orders");
+            assertThat(name).isEqualTo("external-app");
+            notifications.incrementAndGet();
+        });
+        BedrockMessageConsumer consumer = message -> { };
+
+        registry.registerConsumer("orders", "external-app", 5, consumer);
+
+        verify(subscriptionMapper).upsert("orders", "external-app", 5);
+        assertThat(registry.getConsumer("orders", "external-app")).isSameAs(consumer);
+        assertThat(notifications.get()).isEqualTo(1);
+        assertThatThrownBy(() -> registry.registerConsumer("orders", "external-app", 5, consumer))
+                .isInstanceOf(IllegalStateException.class);
+        verifyNoMoreInteractions(subscriptionMapper);
+    }
+
+    @Test
+    void registerConsumer_rejectsInvalidArgumentsWithoutPersisting() {
+        BedrockConsumerRegistry registry = new BedrockConsumerRegistry(ctx, subscriptionMapper);
+        BedrockMessageConsumer consumer = message -> { };
+
+        assertThatThrownBy(() -> registry.registerConsumer(" ", "name", 3, consumer))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> registry.registerConsumer("topic", "name", 0, consumer))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> registry.registerConsumer("topic", "name", 3, null))
+                .isInstanceOf(IllegalArgumentException.class);
+        verifyNoInteractions(subscriptionMapper);
     }
 }

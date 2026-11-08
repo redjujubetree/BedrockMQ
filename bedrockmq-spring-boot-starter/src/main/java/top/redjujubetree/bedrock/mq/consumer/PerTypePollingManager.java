@@ -9,6 +9,7 @@ import org.springframework.beans.factory.DisposableBean;
 import org.springframework.beans.factory.InitializingBean;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.*;
@@ -25,6 +26,7 @@ public class PerTypePollingManager implements InitializingBean, DisposableBean {
     private final BedrockMqProperties properties;
 
     private final List<ThreadPoolExecutor> workerPools = new ArrayList<>();
+    private final Set<String> pollingKeys = new HashSet<>();
 
     private ScheduledExecutorService scheduler;
 
@@ -40,30 +42,35 @@ public class PerTypePollingManager implements InitializingBean, DisposableBean {
 
     @Override
     public void afterPropertiesSet() {
-        Set<String> registeredKeys = registry.getRegisteredKeys();
-        if (registeredKeys.isEmpty()) {
-            return;
-        }
-
-        scheduler = createPollingScheduler();
+        Set<String> registeredKeys = registry.setRegistrationListener(this::startPolling);
         for (String registryKey : registeredKeys) {
             String[] parts = BedrockConsumerRegistry.splitKey(registryKey);
-            String topic = parts[0];
-            String consumerName = parts[1];
-            int concurrency = properties.getConcurrencyFor(registryKey);
+            startPolling(parts[0], parts[1]);
+        }
+    }
 
-            ThreadPoolExecutor workerPool = createWorkerPool(topic, consumerName, concurrency);
-
+    private synchronized void startPolling(String topic, String consumerName) {
+        String registryKey = BedrockConsumerRegistry.key(topic, consumerName);
+        if (!pollingKeys.add(registryKey)) {
+            return;
+        }
+        int concurrency = properties.getConcurrencyFor(registryKey);
+        ThreadPoolExecutor workerPool = createWorkerPool(topic, consumerName, concurrency);
+        try {
+            if (scheduler == null) {
+                scheduler = createPollingScheduler();
+                log.info("Started shared polling scheduler threads={}", POLLING_SCHEDULER_THREADS);
+            }
             scheduler.scheduleWithFixedDelay(
                     () -> poll(topic, consumerName, workerPool),
                     0, properties.getPollIntervalMs(), TimeUnit.MILLISECONDS);
-
             workerPools.add(workerPool);
-
             log.info("Started polling for topic={} consumer={} concurrency={}", topic, consumerName, concurrency);
+        } catch (RuntimeException e) {
+            workerPool.shutdownNow();
+            pollingKeys.remove(registryKey);
+            throw e;
         }
-        log.info("Started shared polling scheduler threads={} registrations={}",
-                POLLING_SCHEDULER_THREADS, registeredKeys.size());
     }
 
     ScheduledExecutorService createPollingScheduler() {
@@ -129,7 +136,7 @@ public class PerTypePollingManager implements InitializingBean, DisposableBean {
     }
 
     @Override
-    public void destroy() {
+    public synchronized void destroy() {
         if (scheduler != null) {
             scheduler.shutdown();
             awaitTermination(scheduler);

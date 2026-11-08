@@ -3,11 +3,13 @@ package top.redjujubetree.bedrock.mq.consumer;
 import top.redjujubetree.bedrock.mq.config.BedrockMqProperties;
 import top.redjujubetree.bedrock.mq.entity.BedrockConsumeRecord;
 import top.redjujubetree.bedrock.mq.mapper.BedrockConsumeRecordMapper;
+import top.redjujubetree.bedrock.mq.mapper.BedrockSubscriptionMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationContext;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -130,7 +132,7 @@ class PerTypePollingManagerTest {
 
     @Test
     void afterPropertiesSet_createsOneSharedSchedulerForAllRegisteredPairs() {
-        when(registry.getRegisteredKeys()).thenReturn(new LinkedHashSet<>(Arrays.asList(
+        when(registry.setRegistrationListener(any())).thenReturn(new LinkedHashSet<>(Arrays.asList(
                 "order:billing", "order:inventory")));
         when(properties.getConcurrencyFor(anyString())).thenReturn(1);
         when(properties.getPollIntervalMs()).thenReturn(3_600_000L);
@@ -148,6 +150,37 @@ class PerTypePollingManagerTest {
             manager.afterPropertiesSet();
 
             assertThat(schedulerCreations.get()).isEqualTo(1);
+        } finally {
+            manager.destroy();
+        }
+    }
+
+    @Test
+    void runtimeRegistration_startsPollingAfterEmptyStartup() {
+        ApplicationContext context = mock(ApplicationContext.class);
+        BedrockSubscriptionMapper subscriptions = mock(BedrockSubscriptionMapper.class);
+        BedrockConsumerRegistry actualRegistry = new BedrockConsumerRegistry(context, subscriptions);
+        when(properties.getConcurrencyFor("orders:external")).thenReturn(1);
+        when(properties.getPollIntervalMs()).thenReturn(3_600_000L);
+        AtomicInteger schedulerCreations = new AtomicInteger();
+        manager = new PerTypePollingManager(consumeRecordMapper, processor, actualRegistry, properties) {
+            @Override
+            ScheduledExecutorService createPollingScheduler() {
+                schedulerCreations.incrementAndGet();
+                return super.createPollingScheduler();
+            }
+        };
+
+        try {
+            manager.afterPropertiesSet();
+            assertThat(schedulerCreations.get()).isZero();
+
+            actualRegistry.registerConsumer("orders", "external", 4, message -> { });
+
+            assertThat(schedulerCreations.get()).isEqualTo(1);
+            assertThat(actualRegistry.getRegisteredKeys()).containsExactly("orders:external");
+            verify(subscriptions).upsert("orders", "external", 4);
+            verify(consumeRecordMapper, timeout(1000)).selectPending("orders", "external", 10);
         } finally {
             manager.destroy();
         }

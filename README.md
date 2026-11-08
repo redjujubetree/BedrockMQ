@@ -70,7 +70,7 @@ BedrockMQ 的目标不是替代 Kafka 或 RabbitMQ。
 <dependency>
     <groupId>top.redjujubetree</groupId>
     <artifactId>bedrockmq-spring-boot-starter</artifactId>
-    <version>0.0.7</version>
+    <version>0.1.0</version>
 </dependency>
 ```
 
@@ -114,6 +114,19 @@ public class OrderConsumer implements BedrockMessageConsumer {
 @BedrockConsumer(value = "billing", topic = "order", maxRetry = 5)
 public class BillingConsumer implements BedrockMessageConsumer { ... }
 ```
+
+也可在应用运行时通过 `BedrockConsumerRegistry` 注册无需注解的处理器：
+
+```java
+@Autowired
+BedrockConsumerRegistry consumerRegistry;
+
+consumerRegistry.registerConsumer("order", "external-app", 5, message -> {
+    // 处理消息；异常会触发重试
+});
+```
+
+注册会创建订阅并立即启动该 `(topic, consumer)` 的轮询。已有订阅的启停状态和最大重试次数保持不变；重复注册同一组合会抛出异常。
 
 ### 5. 发送消息
 
