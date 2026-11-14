@@ -26,7 +26,7 @@ BedrockMQ 的目标不是替代 Kafka 或 RabbitMQ。
 
 ## 特性
 
-- **零侵入** — 显式配置 `bedrock.mq.enabled=false` 时，所有 Bean 均不加载；引入 starter 后默认启用
+- **零侵入** — 引入 starter 后核心数据库与消费组件默认启用；设置 `bedrock.mq.enabled=false` 可关闭这些组件，独立的 HTTP 客户端由 `bedrock.mq.http.client.enabled` 控制
 - **Pub-Sub 扇出** — 一条消息广播给所有订阅该 topic 的 consumer，各自独立消费
 - **分布式互斥** — 基于数据库 `UPDATE ... WHERE status=0` CAS 原子抢占，无需 Redis
 - **延迟 / 定时消息** — 通过 `scheduledAt` 字段支持延迟投递
@@ -87,9 +87,9 @@ SQLite：执行 `bedrockmq-spring-boot-starter/src/main/resources/schema-sqlite.
 
 默认使用数据库自增主键。需要应用生成 ID 时，可提供一个 `BedrockIdGenerator` Bean；示例和切换注意事项见[快速开始](bedrockmq-docs/docs/quickstart.md)。
 
-### 3. 关闭模块（可选）
+### 3. 关闭核心模块（可选）
 
-引入 starter 后默认启用，不需要时显式禁用：
+引入 starter 后核心数据库与消费组件默认启用，不需要时显式禁用。HTTP 客户端有独立开关，启用后不受此设置影响：
 
 ```properties
 bedrock.mq.enabled=false
@@ -130,6 +130,10 @@ consumerRegistry.registerConsumer("order", "external-app", 5, message -> {
 
 ### 5. 发送消息
 
+需要跨 JVM 通过 HTTP 发送时，可单独设置 `bedrock.mq.http.client.enabled=true` 启用 Starter 的 `BedrockHttpClient`，无需开启 HTTP Server。发送方在 `bedrock.mq.http.clients` 中配置具名客户端的地址、端口、密钥与算法；接收方 Spring MVC 应用保持 `bedrock.mq.enabled=true`（默认值），设置 `bedrock.mq.http.server.enabled=true` 和统一解密密钥、算法，也可在 `server.clients` 中为个别客户端覆盖。调用时指定客户端名称，例如 `client.send("primary", "order", "order-service", orderDTO)`。用法及部署注意事项见 [API 参考](bedrockmq-docs/docs/api-reference.md#http-client-bedrockhttpclient)。
+
+`bedrockmq-example` 提供本机 HTTP 发送与接收示例：设置 `BEDROCKMQ_HTTP_KEY` 为 Base64 编码的 32 字节密钥，以 `--spring.profiles.active=sqlite,http-client` 启动，再调用 `POST /bedrockmq-example/example/http/orders?orderId=1&customerId=C001&amount=99.9`。示例控制器通过 `BedrockHttpClient` 向具名客户端 `primary` 发送，配置见 `application-http-client.properties`。
+
 ```java
 @Autowired
 MessageProducer producer;
@@ -153,7 +157,7 @@ producer.sendBatch(Arrays.asList(
 
 | 参数 | 默认值 | 说明 |
 |------|--------|------|
-| `bedrock.mq.enabled` | `true` | 模块总开关，引入 starter 后默认启用；设为 `false` 可禁用 |
+| `bedrock.mq.enabled` | `true` | 核心数据库与消费组件开关；设为 `false` 时，独立启用的 HTTP 客户端仍可加载 |
 | `bedrock.mq.node-id` | hostname + 随机串 | 集群节点唯一标识 |
 | `bedrock.mq.batch-size` | `10` | 每个 (topic, consumer) 每次轮询拉取上限；实际数量受 worker 可用容量限制 |
 | `bedrock.mq.poll-interval-ms` | `1000` | 轮询间隔（毫秒） |

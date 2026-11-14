@@ -45,7 +45,7 @@ spring.datasource.url=jdbc:sqlite:/path/to/bedrockmq.db
 spring.datasource.driver-class-name=org.sqlite.JDBC
 ```
 
-To disable it explicitly:
+To disable the core database and consumer infrastructure, set the following property. The separately enabled HTTP client remains available:
 
 ```properties
 bedrock.mq.enabled=false
@@ -57,13 +57,6 @@ When upgrading an existing database from a version without fixed processing dead
 
 - MySQL: `migration-processing-expires-mysql.sql`
 - SQLite: `migration-processing-expires-sqlite.sql`
-
-When upgrading application code, apply these source-level renames:
-
-- `MessageConsumer` → `BedrockMessageConsumer`
-- `MessageProcessor` → `BedrockMessageProcessor`
-
-The old types are no longer provided. The auto-configured processor bean name is now `bedrockMessageProcessor`.
 
 ## 4. Write a consumer
 
@@ -117,6 +110,8 @@ producer.sendBatch(Arrays.asList(
 ```
 
 The producer queries `bedrock_subscription` at send time and creates one `bedrock_consume_record` per enabled subscriber. It has no dependency on any consumer JVM being alive.
+
+To send through HTTP, set `bedrock.mq.http.client.enabled=true` and configure one or more named `bedrock.mq.http.clients` with separate address, port, key, and algorithm. This client works even when `bedrock.mq.http.server.enabled=false` or `bedrock.mq.enabled=false`. In the receiving Spring MVC application, keep `bedrock.mq.enabled=true` (the default), set `bedrock.mq.http.server.enabled=true`, and configure a shared `server.encryption-key` and `server.algorithm`; optional `server.clients.<name>` entries override either value for individual clients. The Starter registers the encrypted endpoint there. Inject `BedrockHttpClient` and call `client.send("primary", "order", "checkout-service", orderPayload)`. A failed request is returned to the caller without an automatic retry. See the [HTTP client reference](api-reference.md#http-client-bedrockhttpclient) for YAML and security details.
 
 ## Optional custom IDs
 

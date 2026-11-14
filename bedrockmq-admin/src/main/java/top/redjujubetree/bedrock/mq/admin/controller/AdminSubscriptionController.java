@@ -12,11 +12,11 @@ import top.redjujubetree.bedrock.mq.admin.service.BedrockAdminService;
 
 @RestController
 @RequestMapping("/bedrock/subscriptions")
-public class BedrockSubscriptionController {
+public class AdminSubscriptionController {
 
     private final BedrockAdminService service;
 
-    public BedrockSubscriptionController(BedrockAdminService service) {
+    public AdminSubscriptionController(BedrockAdminService service) {
         this.service = service;
     }
 

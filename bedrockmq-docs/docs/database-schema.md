@@ -18,7 +18,7 @@ Immutable message log. Written once by the producer; never updated afterwards.
 | id | BIGINT PK | Auto-increment |
 | topic | VARCHAR(64) | Routes to all subscribers of this topic |
 | message_source | VARCHAR(64) NOT NULL | Sending service name; required |
-| payload | TEXT | JSON business data |
+| payload | TEXT | business data |
 | created_at | DATETIME | Set by `MessageProducer` at insert time |
 | updated_at | DATETIME | Set by `MessageProducer` at insert time; DDL also has `ON UPDATE` |
 

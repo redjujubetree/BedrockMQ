@@ -65,7 +65,7 @@ git diff --check
 
 ## 自动配置总开关
 
-`BedrockAutoConfiguration` 是基础设施 Bean 的唯一注册入口：
+`BedrockAutoConfiguration` 是核心数据库、生产和消费基础设施 Bean 的唯一注册入口：
 
 ```java
 @Configuration
@@ -81,9 +81,9 @@ git diff --check
 必须保持以下行为：
 
 - 引入 starter 后默认启用。
-- 显式设置 `bedrock.mq.enabled=false` 时，模块内所有基础设施 Bean 均不加载。
+- 显式设置 `bedrock.mq.enabled=false` 时，核心数据库、生产和消费基础设施 Bean 均不加载。独立的 `BedrockHttpClient` 仅由 `bedrock.mq.http.client.enabled=true` 启用。
 - `MessageProducer`、`BedrockMessageProcessor`、`BedrockConsumerRegistry`、`PerTypePollingManager`、`TimeoutRecoveryTask` 和 Mapper 不加独立 `@Component`，统一由自动配置创建。
-- `@EnableConfigurationProperties` 继续受总开关控制。
+- 核心配置类上的 `@EnableConfigurationProperties(BedrockMqProperties.class)` 继续受总开关控制；HTTP 客户端配置属性由独立自动配置注册。
 - 不要在宿主应用中隐式启用 `@Scheduled`、组件扫描或额外全局配置。
 
 ## 数据模型与不可变约束
@@ -238,7 +238,7 @@ AnnotationUtils.findAnnotation(
 - 处理期限不会通过心跳或其他更新延长；
 - 无处理期限的 PROCESSING 记录不会被恢复；
 - MySQL 模式/H2 与真实 SQLite 行为；
-- `bedrock.mq.enabled=false` 时基础设施 Bean 不加载。
+- `bedrock.mq.enabled=false` 时核心基础设施 Bean 不加载；独立启用的 HTTP 客户端仍可加载。
 
 涉及 Producer 时至少覆盖事务扇出、无订阅、订阅默认重试次数、覆盖重试次数、延迟发送、批量发送和序列化失败。
 

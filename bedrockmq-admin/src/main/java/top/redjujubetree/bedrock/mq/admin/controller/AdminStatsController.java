@@ -8,11 +8,11 @@ import top.redjujubetree.bedrock.mq.admin.service.BedrockAdminService;
 
 @RestController
 @RequestMapping("/bedrock")
-public class BedrockStatsController {
+public class AdminStatsController {
 
     private final BedrockAdminService service;
 
-    public BedrockStatsController(BedrockAdminService service) {
+    public AdminStatsController(BedrockAdminService service) {
         this.service = service;
     }
 

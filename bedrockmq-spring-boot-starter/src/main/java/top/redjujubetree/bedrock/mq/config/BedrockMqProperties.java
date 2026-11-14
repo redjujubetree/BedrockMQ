@@ -17,6 +17,40 @@ public class BedrockMqProperties {
     private int defaultConcurrency = 1;
     private Map<String, Integer> typeConcurrency = new HashMap<>();
     private String dbDialect = "auto";
+    private Http http = new Http();
+
+    public static class Http {
+        private Server server = new Server();
+        public Server getServer() { return server; }
+        public void setServer(Server server) { this.server = server; }
+    }
+
+    public static class Server {
+        private boolean enabled;
+        private String encryptionKey;
+        private String algorithm = "AES-256-GCM";
+        private Map<String, Credential> clients = new HashMap<>();
+        public boolean isEnabled() { return enabled; }
+        public void setEnabled(boolean enabled) { this.enabled = enabled; }
+        public String getEncryptionKey() { return encryptionKey; }
+        public void setEncryptionKey(String encryptionKey) { this.encryptionKey = encryptionKey; }
+        public String getAlgorithm() { return algorithm; }
+        public void setAlgorithm(String algorithm) { this.algorithm = algorithm; }
+        public Map<String, Credential> getClients() { return clients; }
+        public void setClients(Map<String, Credential> clients) { this.clients = clients; }
+    }
+
+    public static class Credential {
+        private String encryptionKey;
+        private String algorithm;
+        public String getEncryptionKey() { return encryptionKey; }
+        public void setEncryptionKey(String encryptionKey) { this.encryptionKey = encryptionKey; }
+        public String getAlgorithm() { return algorithm; }
+        public void setAlgorithm(String algorithm) { this.algorithm = algorithm; }
+    }
+
+    public Http getHttp() { return http; }
+    public void setHttp(Http http) { this.http = http; }
 
     private static String generateDefaultNodeId() {
         try {

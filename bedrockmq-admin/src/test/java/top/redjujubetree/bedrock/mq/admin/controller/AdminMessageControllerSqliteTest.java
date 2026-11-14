@@ -13,11 +13,11 @@ import org.springframework.test.web.servlet.MvcResult;
 import top.redjujubetree.bedrock.mq.constant.MessageStatus;
 import top.redjujubetree.bedrock.mq.entity.BedrockConsumeRecord;
 import top.redjujubetree.bedrock.mq.entity.BedrockMessage;
-import top.redjujubetree.bedrock.mq.entity.BedrockSubscription;
 import top.redjujubetree.bedrock.mq.mapper.BedrockConsumeRecordMapper;
 import top.redjujubetree.bedrock.mq.mapper.BedrockMessageMapper;
 import top.redjujubetree.bedrock.mq.mapper.BedrockSubscriptionMapper;
 import top.redjujubetree.bedrock.mq.recovery.TimeoutRecoveryTask;
+import top.redjujubetree.bedrock.mq.entity.BedrockSubscription;
 
 import java.time.LocalDateTime;
 import java.util.Map;
@@ -29,9 +29,18 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@SpringBootTest
+@SpringBootTest(properties = {
+        "spring.datasource.url=jdbc:sqlite:file::memory:?cache=shared",
+        "spring.datasource.driver-class-name=org.sqlite.JDBC",
+        "spring.datasource.username=",
+        "spring.datasource.password=",
+        "spring.datasource.hikari.maximum-pool-size=1",
+        "spring.sql.init.schema-locations=classpath:schema-sqlite.sql",
+        "spring.sql.init.mode=always",
+        "bedrock.mq.db-dialect=sqlite"
+})
 @AutoConfigureMockMvc
-class BedrockMessageControllerTest {
+class AdminMessageControllerSqliteTest {
 
     @Autowired MockMvc mvc;
     @Autowired BedrockMessageMapper messageMapper;
@@ -60,7 +69,6 @@ class BedrockMessageControllerTest {
                 .andReturn();
 
         Long id = extractId(result);
-        // id returned is the message id; verify bedrock_message record exists
         BedrockMessage saved = messageMapper.selectById(id);
         assertThat(saved).isNotNull();
         assertThat(saved.getTopic()).isEqualTo("order");
@@ -97,13 +105,6 @@ class BedrockMessageControllerTest {
                 .findFirst().get();
         assertThat(saved.getMaxRetry()).isEqualTo(3);
         assertThat(saved.getStatus()).isEqualTo(0);
-    }
-
-    @Test
-    void consumers_returnsRegisteredConsumerKeys() throws Exception {
-        mvc.perform(get("/bedrock/consumers"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$").isArray());
     }
 
     // ── 消费记录（重试） ───────────────────────────────────────────────────────────
@@ -302,11 +303,9 @@ class BedrockMessageControllerTest {
         mvc.perform(post("/bedrock/messages/{id}/delete", recordId))
                 .andExpect(status().isOk());
 
-        // selectByIdWithMessage filters deleted=0, so result should be null
         BedrockConsumeRecord found = consumeRecordMapper.selectByIdWithMessage(recordId);
         assertThat(found).isNull();
 
-        // underlying row still exists in DB (soft delete, not physical)
         BedrockConsumeRecord raw = consumeRecordMapper.selectById(recordId);
         assertThat(raw).isNotNull();
         assertThat(raw.getDeleted()).isEqualTo(1);
@@ -319,10 +318,29 @@ class BedrockMessageControllerTest {
         mvc.perform(post("/bedrock/messages/{id}/delete", recordId))
                 .andExpect(status().isOk());
 
-        // selectPending should not return deleted records
         java.util.List<BedrockConsumeRecord> pending =
                 consumeRecordMapper.selectPending("order", "order", 100);
         assertThat(pending).noneMatch(r -> r.getId().equals(recordId));
+    }
+
+    @Test
+    void fixedProcessingDeadlineAndTokenGuardWorkOnSqlite() {
+        Long recordId = insertPendingConsumeRecord();
+        LocalDateTime start = LocalDateTime.now();
+        LocalDateTime deadline = start.plusMinutes(30);
+        assertThat(consumeRecordMapper.tryAcquire(
+                recordId, "sqlite-node-a", "sqlite-token-a", start, deadline))
+                .isEqualTo(1);
+
+        assertThat(consumeRecordMapper.recoverTimeoutRecords(deadline.minusSeconds(1))).isZero();
+        assertThat(consumeRecordMapper.recoverTimeoutRecords(deadline)).isEqualTo(1);
+        assertThat(consumeRecordMapper.tryAcquire(
+                recordId, "sqlite-node-b", "sqlite-token-b", deadline,
+                deadline.plusMinutes(30))).isEqualTo(1);
+        assertThat(consumeRecordMapper.markCompleted(
+                recordId, "sqlite-token-a", deadline.plusSeconds(1))).isZero();
+        assertThat(consumeRecordMapper.markCompleted(
+                recordId, "sqlite-token-b", deadline.plusSeconds(1))).isEqualTo(1);
     }
 
     // ── helpers ───────────────────────────────────────────────────────────────────
@@ -363,7 +381,6 @@ class BedrockMessageControllerTest {
 
     private Long insertFailedConsumeRecord() {
         BedrockMessage msg = insertMessage();
-
         BedrockConsumeRecord record = new BedrockConsumeRecord();
         record.setMessageId(msg.getId());
         record.setTopic("order");

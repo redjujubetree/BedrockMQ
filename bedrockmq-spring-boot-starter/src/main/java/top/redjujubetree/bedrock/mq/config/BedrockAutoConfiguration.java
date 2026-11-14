@@ -11,9 +11,11 @@ import top.redjujubetree.bedrock.mq.mapper.BedrockMessageMapper;
 import top.redjujubetree.bedrock.mq.mapper.BedrockSubscriptionMapper;
 import top.redjujubetree.bedrock.mq.id.BedrockIdGenerator;
 import top.redjujubetree.bedrock.mq.producer.MessageProducer;
+import top.redjujubetree.bedrock.mq.controller.BedrockMessageController;
 import top.redjujubetree.bedrock.mq.recovery.TimeoutRecoveryTask;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.ApplicationContext;
@@ -95,6 +97,18 @@ public class BedrockAutoConfiguration {
                                            BedrockSubscriptionMapper subscriptionMapper,
                                            ObjectMapper objectMapper) {
         return new MessageProducer(messageMapper, consumeRecordMapper, subscriptionMapper, objectMapper);
+    }
+
+    @Configuration
+    @ConditionalOnClass(name = "org.springframework.web.servlet.DispatcherServlet")
+    @ConditionalOnProperty(prefix = "bedrock.mq.http.server", name = "enabled", havingValue = "true")
+    static class HttpEndpointConfiguration {
+        @Bean
+        public BedrockMessageController encryptedMessageController(BedrockMqProperties properties,
+                                                                   ObjectMapper objectMapper,
+                                                                   MessageProducer producer) {
+            return new BedrockMessageController(properties.getHttp().getServer(), objectMapper, producer);
+        }
     }
 
     @Bean

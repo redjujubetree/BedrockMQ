@@ -19,11 +19,11 @@ import java.util.Collections;
 
 @RestController
 @RequestMapping("/bedrock/messages")
-public class BedrockMessageController {
+public class AdminMessageController {
 
     private final BedrockAdminService service;
 
-    public BedrockMessageController(BedrockAdminService service) {
+    public AdminMessageController(BedrockAdminService service) {
         this.service = service;
     }
 

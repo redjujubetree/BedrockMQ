@@ -1,2 +1,3 @@
 org.springframework.boot.autoconfigure.EnableAutoConfiguration=\
-  top.redjujubetree.bedrock.mq.config.BedrockAutoConfiguration
+  top.redjujubetree.bedrock.mq.config.BedrockAutoConfiguration,\
+  top.redjujubetree.bedrock.mq.config.BedrockClientAutoConfiguration
